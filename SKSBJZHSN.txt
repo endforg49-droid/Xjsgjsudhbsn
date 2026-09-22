@@ -1,40 +1,24 @@
---[[
-    ╔══════════════════════════════════════════════════════════════╗
-    ║       BSTS-ID - LuxxyHub                                     ║
-    ║       Car Tool + Game Lock + Save Config                     ║
-    ║       PlaceId: 114375429517112                               ║
-    ╚══════════════════════════════════════════════════════════════╝
---]]
+-- ═══════════════════════════════════════════════════════════════
+-- BSTS-ID - LuxxyHub
+-- Car Tool + Game Lock + Save Config
+-- PlaceId: 114375429517112
+-- v1.3 (Robust UI)
+-- ═══════════════════════════════════════════════════════════════
 
--- ═══════════════════════════════════════════════════════════════
--- [ CONFIG ]
--- ═══════════════════════════════════════════════════════════════
 local CONFIG = {
     BrandName = "BSTS-ID - LuxxyHub",
     ConfigFile = "bstsid_luxxyhub_config.json",
-
-    -- ═══ GAME LOCK (BSTS-ID ONLY) ═══
-    AllowedPlaceIds = {
-        114375429517112,
-    },
-    -- Fallback keyword kalau PlaceId berubah
+    AllowedPlaceIds = { 114375429517112 },
     AllowedNameKeywords = {"bsts", "bus simulator", "bsts-id", "bstsid"},
 }
 
--- ═══════════════════════════════════════════════════════════════
--- SERVICES
--- ═══════════════════════════════════════════════════════════════
 local Players          = game:GetService("Players")
 local TweenService     = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
 local RunService       = game:GetService("RunService")
-local CoreGui          = game:GetService("CoreGui")
 local HttpService      = game:GetService("HttpService")
 local LocalPlayer      = Players.LocalPlayer
 
--- ═══════════════════════════════════════════════════════════════
--- THEME
--- ═══════════════════════════════════════════════════════════════
 local COLOR = {
     White = Color3.fromRGB(255, 255, 255),
     DarkText = Color3.fromRGB(30, 60, 100),
@@ -46,25 +30,23 @@ local COLOR = {
     Green2 = Color3.fromRGB(0, 120, 60),
 }
 
--- ═══════════════════════════════════════════════════════════════
--- UTILS
--- ═══════════════════════════════════════════════════════════════
 local function new(class, props)
     local inst = Instance.new(class)
     for k, v in pairs(props or {}) do inst[k] = v end
     return inst
 end
-local function corner(p, r) return new("UICorner", {CornerRadius = UDim.new(0, r or 8), Parent = p}) end
+local function corner(p, r) 
+    local c = Instance.new("UICorner")
+    c.CornerRadius = UDim.new(0, r or 8)
+    c.Parent = p
+    return c
+end
 local function tween(inst, props, time, style, dir)
     return TweenService:Create(inst, TweenInfo.new(time or 0.2, style or Enum.EasingStyle.Quad, dir or Enum.EasingDirection.Out), props)
 end
-local function bindClick(btn, fn)
-    btn.Activated:Connect(fn)
-    btn.MouseButton1Click:Connect(fn)
-end
 
 -- ═══════════════════════════════════════════════════════════════
--- SAVE / LOAD CONFIG
+-- CONFIG SAVE/LOAD
 -- ═══════════════════════════════════════════════════════════════
 local defaultConfig = {
     flySpeed = 60,
@@ -115,29 +97,24 @@ local function isBSTSGame()
 end
 
 -- ═══════════════════════════════════════════════════════════════
--- CLEANUP
--- ═══════════════════════════════════════════════════════════════
-pcall(function()
-    local old = CoreGui:FindFirstChild("LuxxysWrongMapUI")
-    if old then old:Destroy() end
-end)
-
--- ═══════════════════════════════════════════════════════════════
 -- WRONG MAP UI
 -- ═══════════════════════════════════════════════════════════════
 local function buildWrongMapUI()
-    local old = CoreGui:FindFirstChild("LuxxysWrongMapUI")
-    if old then old:Destroy() end
+    pcall(function()
+        local old = LocalPlayer:WaitForChild("PlayerGui"):FindFirstChild("LuxxysWrongMapUI")
+        if old then old:Destroy() end
+    end)
 
     local sg = new("ScreenGui", {
         Name = "LuxxysWrongMapUI",
         ResetOnSpawn = false,
         IgnoreGuiInset = true,
         ZIndexBehavior = Enum.ZIndexBehavior.Sibling,
-        Parent = CoreGui,
+        DisplayOrder = 999,
+        Parent = LocalPlayer:WaitForChild("PlayerGui"),
     })
 
-    local backdrop = new("Frame", {
+    new("Frame", {
         Size = UDim2.new(1, 0, 1, 0),
         BackgroundColor3 = Color3.fromRGB(0, 0, 0),
         BackgroundTransparency = 0.5,
@@ -166,7 +143,7 @@ local function buildWrongMapUI()
         Size = UDim2.new(1, -40, 0, 40),
         Position = UDim2.new(0, 20, 0, 20),
         BackgroundTransparency = 1,
-        Text = "⚠️ MAP TIDAK SESUAI",
+        Text = "MAP TIDAK SESUAI",
         TextColor3 = COLOR.Error,
         Font = Enum.Font.GothamBold, TextSize = 22,
         TextXAlignment = Enum.TextXAlignment.Center,
@@ -177,7 +154,7 @@ local function buildWrongMapUI()
         Size = UDim2.new(1, -60, 0, 140),
         Position = UDim2.new(0, 30, 0, 70),
         BackgroundTransparency = 1,
-        Text = "Script ini HANYA bisa dipakai di:\n\n🎮  BSTS-ID\n(PlaceId: 114375429517112)\n\nSilakan pindah ke map BSTS-ID terlebih dahulu,\nlalu jalankan ulang script ini.",
+        Text = "Script ini HANYA bisa dipakai di:\n\nBSTS-ID\n(PlaceId: 114375429517112)\n\nPindah ke map BSTS-ID dulu, lalu jalankan ulang.",
         TextColor3 = COLOR.DarkText,
         Font = Enum.Font.Gotham, TextSize = 13,
         TextXAlignment = Enum.TextXAlignment.Center,
@@ -206,12 +183,7 @@ local function buildWrongMapUI()
         ZIndex = 100, Parent = Main,
     })
     corner(CloseBtn, 10)
-    bindClick(CloseBtn, function() sg:Destroy() end)
-
-    Main.Size = UDim2.new(0, 0, 0, 0)
-    tween(Main, {Size = UDim2.new(0, 420, 0, 300)}, 0.4, Enum.EasingStyle.Back):Play()
-
-    print("[BSTS-ID] ⚠️ Map tidak sesuai. Hanya berfungsi di BSTS-ID (PlaceId: 114375429517112).")
+    CloseBtn.MouseButton1Click:Connect(function() sg:Destroy() end)
 end
 
 -- ═══════════════════════════════════════════════════════════════
@@ -224,14 +196,23 @@ local function startCarTool()
         for _, c in pairs(activeConnections) do pcall(function() c:Disconnect() end) end
         for _, i in pairs(activeInstances) do pcall(function() if i and i.Parent then i:Destroy() end end) end
         activeConnections, activeInstances = {}, {}
-        print("🧹 Script lama dibersihkan.")
     end
-    local function bind(sig, cb) local c = sig:Connect(cb); table.insert(activeConnections, c); return c end
-    local function track(i) table.insert(activeInstances, i); return i end
+    local function bind(sig, cb) 
+        local c = sig:Connect(cb)
+        table.insert(activeConnections, c)
+        return c 
+    end
+    local function track(i) 
+        table.insert(activeInstances, i)
+        return i 
+    end
 
-    for _, gui in pairs(LocalPlayer.PlayerGui:GetChildren()) do
-        if gui.Name == "BSTS_LuxxyHub" then pcall(function() gui:Destroy() end) end
-    end
+    -- Cleanup GUI lama
+    pcall(function()
+        local pg = LocalPlayer:WaitForChild("PlayerGui")
+        local old = pg:FindFirstChild("BSTS_LuxxyHub")
+        if old then old:Destroy() end
+    end)
 
     local savedPositions = userConfig.savedPositions or {}
     local slotCounter = userConfig.slotCounter or 0
@@ -257,11 +238,11 @@ local function startCarTool()
                 userConfig.slotCounter = slotCounter
                 userConfig.flySpeed = flySpeed
                 saveConfig(userConfig)
-                print("💾 Config saved.")
             end
         end
     end)
 
+    -- ═══ FUNGSI MOBIL ═══
     local function findNearestCar()
         local char = LocalPlayer.Character
         if not char then return nil end
@@ -271,7 +252,10 @@ local function startCarTool()
         for _, obj in pairs(workspace:GetDescendants()) do
             if obj:IsA("VehicleSeat") then
                 local dist = (obj.Position - hrp.Position).Magnitude
-                if dist < shortestDist then shortestDist = dist; nearestSeat = obj end
+                if dist < shortestDist then
+                    shortestDist = dist
+                    nearestSeat = obj
+                end
             end
         end
         if not nearestSeat then return nil end
@@ -290,30 +274,45 @@ local function startCarTool()
         local primaryPart = targetVehicleRoot.PrimaryPart or targetVehicleRoot:FindFirstChildWhichIsA("BasePart")
         if not primaryPart then
             for _, d in pairs(targetVehicleRoot:GetDescendants()) do
-                if d:IsA("BasePart") then primaryPart = d break end
+                if d:IsA("BasePart") then
+                    primaryPart = d
+                    break
+                end
             end
         end
         if not primaryPart then return end
 
         local allParts, relCF = {}, {}
         for _, p in pairs(targetVehicleRoot:GetDescendants()) do
-            if p:IsA("BasePart") then table.insert(allParts, p) end
+            if p:IsA("BasePart") then
+                table.insert(allParts, p)
+            end
         end
-        for _, p in pairs(allParts) do relCF[p] = primaryPart.CFrame:ToObjectSpace(p.CFrame) end
-        for _, p in pairs(allParts) do p.Anchored = true end
+        for _, p in pairs(allParts) do
+            relCF[p] = primaryPart.CFrame:ToObjectSpace(p.CFrame)
+        end
+        for _, p in pairs(allParts) do
+            p.Anchored = true
+        end
 
         primaryPart.CFrame = CFrame.new(pos + Vector3.new(0, 3, 0))
-        for p, rel in pairs(relCF) do p.CFrame = primaryPart.CFrame:ToWorldSpace(rel) end
+        for p, rel in pairs(relCF) do
+            p.CFrame = primaryPart.CFrame:ToWorldSpace(rel)
+        end
 
         task.wait(0.1)
         for _, p in pairs(allParts) do
             p.Anchored = false
             pcall(function()
-                if p:CanSetNetworkOwnership() then p:SetNetworkOwner(LocalPlayer) end
+                if p:CanSetNetworkOwnership() then
+                    p:SetNetworkOwner(LocalPlayer)
+                end
             end)
         end
         for _, d in pairs(targetVehicleRoot:GetDescendants()) do
-            if d:IsA("LocalScript") and not d.Enabled then d.Enabled = true end
+            if d:IsA("LocalScript") and not d.Enabled then
+                d.Enabled = true
+            end
         end
     end
 
@@ -322,7 +321,9 @@ local function startCarTool()
         local char = LocalPlayer.Character
         if not char then return end
         local hrp = char:FindFirstChild("HumanoidRootPart")
-        if hrp then hrp.CFrame = CFrame.new(pos + Vector3.new(0, 4, 0)) end
+        if hrp then
+            hrp.CFrame = CFrame.new(pos + Vector3.new(0, 4, 0))
+        end
     end
 
     local function toggleFly()
@@ -336,10 +337,11 @@ local function startCarTool()
             hum.PlatformStand = true
             flyBV = Instance.new("BodyVelocity", hrp)
             flyBV.MaxForce = Vector3.new(math.huge, math.huge, math.huge)
-            flyBV.Velocity = Vector3.new(0,0,0)
+            flyBV.Velocity = Vector3.new(0, 0, 0)
             flyBG = Instance.new("BodyGyro", hrp)
             flyBG.MaxTorque = Vector3.new(math.huge, math.huge, math.huge)
-            flyBG.P = 10000; flyBG.D = 100
+            flyBG.P = 10000
+            flyBG.D = 100
         else
             if flyBV then flyBV:Destroy() end
             if flyBG then flyBG:Destroy() end
@@ -354,7 +356,7 @@ local function startCarTool()
         local hrp = char:FindFirstChild("HumanoidRootPart")
         if not hrp then return end
         local cam = workspace.CurrentCamera
-        local moveDir = Vector3.new(0,0,0)
+        local moveDir = Vector3.new(0, 0, 0)
         if controls then
             local ok, mv = pcall(function() return controls:GetMoveVector() end)
             if ok and mv and mv.Magnitude > 0 then
@@ -362,18 +364,34 @@ local function startCarTool()
             end
         end
         if moveDir.Magnitude == 0 then
-            if UserInputService:IsKeyDown(Enum.KeyCode.W) then moveDir += cam.CFrame.LookVector end
-            if UserInputService:IsKeyDown(Enum.KeyCode.S) then moveDir -= cam.CFrame.LookVector end
-            if UserInputService:IsKeyDown(Enum.KeyCode.A) then moveDir -= cam.CFrame.RightVector end
-            if UserInputService:IsKeyDown(Enum.KeyCode.D) then moveDir += cam.CFrame.RightVector end
+            if UserInputService:IsKeyDown(Enum.KeyCode.W) then
+                moveDir = moveDir + cam.CFrame.LookVector
+            end
+            if UserInputService:IsKeyDown(Enum.KeyCode.S) then
+                moveDir = moveDir - cam.CFrame.LookVector
+            end
+            if UserInputService:IsKeyDown(Enum.KeyCode.A) then
+                moveDir = moveDir - cam.CFrame.RightVector
+            end
+            if UserInputService:IsKeyDown(Enum.KeyCode.D) then
+                moveDir = moveDir + cam.CFrame.RightVector
+            end
         end
-        if UserInputService:IsKeyDown(Enum.KeyCode.Space) then moveDir += Vector3.new(0,1,0) end
-        if UserInputService:IsKeyDown(Enum.KeyCode.LeftShift) then moveDir -= Vector3.new(0,1,0) end
-        flyBV.Velocity = moveDir.Magnitude > 0 and (moveDir.Unit * flySpeed) or Vector3.new(0,0,0)
+        if UserInputService:IsKeyDown(Enum.KeyCode.Space) then
+            moveDir = moveDir + Vector3.new(0, 1, 0)
+        end
+        if UserInputService:IsKeyDown(Enum.KeyCode.LeftShift) then
+            moveDir = moveDir - Vector3.new(0, 1, 0)
+        end
+        if moveDir.Magnitude > 0 then
+            flyBV.Velocity = moveDir.Unit * flySpeed
+        else
+            flyBV.Velocity = Vector3.new(0, 0, 0)
+        end
         flyBG.CFrame = CFrame.new(hrp.Position, hrp.Position + cam.CFrame.LookVector)
     end)
 
-    -- UI
+    -- ═══ UI ═══
     local cam = workspace.CurrentCamera
     local vp = cam.ViewportSize
     local guiW = math.clamp(340, 260, vp.X - 40)
@@ -384,24 +402,32 @@ local function startCarTool()
         ResetOnSpawn = false,
         ZIndexBehavior = Enum.ZIndexBehavior.Sibling,
         IgnoreGuiInset = true,
+        DisplayOrder = 100,
         Parent = LocalPlayer:WaitForChild("PlayerGui"),
     }))
 
-    -- Toggle FAB
+    -- Toggle Button (FAB)
     local ToggleBtn = track(new("TextButton", {
         Size = UDim2.new(0, 50, 0, 50),
         Position = UDim2.new(0, 15, 0, 100),
         BackgroundColor3 = COLOR.Green1,
-        Text = "⚙️", TextSize = 24, TextColor3 = COLOR.White,
-        Font = Enum.Font.GothamBold, BorderSizePixel = 0,
-        AutoButtonColor = false, Active = true, ZIndex = 100,
+        Text = "MENU",
+        TextSize = 12,
+        TextColor3 = COLOR.White,
+        Font = Enum.Font.GothamBold,
+        BorderSizePixel = 0,
+        AutoButtonColor = false,
+        Active = true,
+        Selectable = true,
+        ZIndex = 200,
         Parent = ScreenGui,
     }))
     corner(ToggleBtn, 25)
     new("UIStroke", {Thickness = 2, Color = COLOR.White, Transparency = 0.3, Parent = ToggleBtn})
     new("UIGradient", {
         Color = ColorSequence.new(Color3.fromRGB(0, 255, 120), Color3.fromRGB(0, 130, 70)),
-        Rotation = 45, Parent = ToggleBtn,
+        Rotation = 45,
+        Parent = ToggleBtn,
     })
 
     -- Main Frame
@@ -411,8 +437,12 @@ local function startCarTool()
         Size = UDim2.new(0, guiW, 0, guiH),
         Position = UDim2.new(userConfig.guiX or 0.5, 0, userConfig.guiY or 0.5, 0),
         BackgroundColor3 = Color3.fromRGB(15, 20, 25),
-        BorderSizePixel = 0, Active = true, Draggable = true,
-        ClipsDescendants = true, Visible = false, ZIndex = 50,
+        BorderSizePixel = 0,
+        Active = true,
+        Draggable = true,
+        ClipsDescendants = true,
+        Visible = false,
+        ZIndex = 100,
         Parent = ScreenGui,
     }))
     corner(MainFrame, 18)
@@ -425,17 +455,27 @@ local function startCarTool()
             ColorSequenceKeypoint.new(0.7, Color3.fromRGB(0, 130, 80)),
             ColorSequenceKeypoint.new(1, Color3.fromRGB(0, 60, 40)),
         }),
-        Rotation = 45, Parent = MainFrame,
+        Rotation = 45,
+        Parent = MainFrame,
     })
+
     task.spawn(function()
         local t = 0
         while MainFrame.Parent do
-            t += 0.03
-            MainGradient.Offset = Vector2.new(math.sin(t) * 0.4, math.sin(t) * 0.3)
+            t = t + 0.03
+            pcall(function()
+                MainGradient.Offset = Vector2.new(math.sin(t) * 0.4, math.sin(t) * 0.3)
+            end)
             task.wait(0.03)
         end
     end)
-    local MainStroke = new("UIStroke", {Thickness = 1.5, Color = Color3.fromRGB(0, 255, 150), Transparency = 0.4, Parent = MainFrame})
+
+    local MainStroke = new("UIStroke", {
+        Thickness = 1.5,
+        Color = Color3.fromRGB(0, 255, 150),
+        Transparency = 0.4,
+        Parent = MainFrame,
+    })
 
     bind(MainFrame:GetPropertyChangedSignal("Position"), function()
         if MainFrame.Visible then
@@ -449,103 +489,179 @@ local function startCarTool()
     local Header = new("Frame", {
         Size = UDim2.new(1, 0, 0, 50),
         BackgroundColor3 = Color3.fromRGB(0, 0, 0),
-        BackgroundTransparency = 0.5, BorderSizePixel = 0,
+        BackgroundTransparency = 0.5,
+        BorderSizePixel = 0,
         Parent = MainFrame,
     })
     corner(Header, 18)
-    new("Frame", {Size = UDim2.new(1, 0, 0.5, 0), Position = UDim2.new(0, 0, 0.5, 0),
-        BackgroundColor3 = Color3.fromRGB(0, 0, 0), BackgroundTransparency = 0.5,
-        BorderSizePixel = 0, Parent = Header})
+    new("Frame", {
+        Size = UDim2.new(1, 0, 0.5, 0),
+        Position = UDim2.new(0, 0, 0.5, 0),
+        BackgroundColor3 = Color3.fromRGB(0, 0, 0),
+        BackgroundTransparency = 0.5,
+        BorderSizePixel = 0,
+        Parent = Header,
+    })
 
     new("TextLabel", {
-        Size = UDim2.new(1, -50, 1, -5), Position = UDim2.new(0, 12, 0, 0),
-        BackgroundTransparency = 1, Text = "🚌 BSTS-ID - LuxxyHub",
-        TextColor3 = COLOR.White, Font = Enum.Font.GothamBlack, TextSize = 15,
-        TextXAlignment = Enum.TextXAlignment.Left, Parent = Header,
+        Size = UDim2.new(1, -50, 1, -5),
+        Position = UDim2.new(0, 12, 0, 0),
+        BackgroundTransparency = 1,
+        Text = "BSTS-ID - LuxxyHub",
+        TextColor3 = COLOR.White,
+        Font = Enum.Font.GothamBlack,
+        TextSize = 15,
+        TextXAlignment = Enum.TextXAlignment.Left,
+        Parent = Header,
     })
     new("TextLabel", {
-        Size = UDim2.new(1, -50, 0, 12), Position = UDim2.new(0, 12, 1, -15),
-        BackgroundTransparency = 1, Text = "Premium • Save Config",
-        TextColor3 = Color3.fromRGB(150, 255, 200), Font = Enum.Font.Gotham,
-        TextSize = 9, TextXAlignment = Enum.TextXAlignment.Left, Parent = Header,
+        Size = UDim2.new(1, -50, 0, 12),
+        Position = UDim2.new(0, 12, 1, -15),
+        BackgroundTransparency = 1,
+        Text = "Premium - Save Config",
+        TextColor3 = Color3.fromRGB(150, 255, 200),
+        Font = Enum.Font.Gotham,
+        TextSize = 9,
+        TextXAlignment = Enum.TextXAlignment.Left,
+        Parent = Header,
     })
 
     local CloseBtn = new("TextButton", {
-        Size = UDim2.new(0, 26, 0, 26), Position = UDim2.new(1, -34, 0, 12),
-        BackgroundColor3 = Color3.fromRGB(255, 80, 80), Text = "✕",
-        TextColor3 = COLOR.White, Font = Enum.Font.GothamBold, TextSize = 13,
-        BorderSizePixel = 0, Parent = Header,
+        Size = UDim2.new(0, 26, 0, 26),
+        Position = UDim2.new(1, -34, 0, 12),
+        BackgroundColor3 = Color3.fromRGB(255, 80, 80),
+        Text = "X",
+        TextColor3 = COLOR.White,
+        Font = Enum.Font.GothamBold,
+        TextSize = 13,
+        BorderSizePixel = 0,
+        ZIndex = 150,
+        Parent = Header,
     })
     corner(CloseBtn, 13)
 
     -- Content
     local Content = new("ScrollingFrame", {
-        Size = UDim2.new(1, -16, 1, -60), Position = UDim2.new(0, 8, 0, 55),
-        BackgroundTransparency = 1, BorderSizePixel = 0,
-        ScrollBarThickness = 2, ScrollBarImageColor3 = Color3.fromRGB(0, 255, 150),
+        Size = UDim2.new(1, -16, 1, -60),
+        Position = UDim2.new(0, 8, 0, 55),
+        BackgroundTransparency = 1,
+        BorderSizePixel = 0,
+        ScrollBarThickness = 2,
+        ScrollBarImageColor3 = Color3.fromRGB(0, 255, 150),
         CanvasSize = UDim2.new(0, 0, 0, 0),
-        AutomaticCanvasSize = Enum.AutomaticSize.Y, Parent = MainFrame,
+        AutomaticCanvasSize = Enum.AutomaticSize.Y,
+        ZIndex = 110,
+        Parent = MainFrame,
     })
-    new("UIListLayout", {SortOrder = Enum.SortOrder.LayoutOrder, Padding = UDim.new(0, 6), Parent = Content})
+    new("UIListLayout", {
+        SortOrder = Enum.SortOrder.LayoutOrder,
+        Padding = UDim.new(0, 6),
+        Parent = Content,
+    })
 
-    local function makePremiumBtn(parent, text, c1, c2, icon, h)
+    local function makePremiumBtn(parent, text, c1, c2, h)
         h = h or 40
         local btn = new("TextButton", {
-            Size = UDim2.new(1, 0, 0, h), BackgroundColor3 = c1, Text = "",
-            BorderSizePixel = 0, AutoButtonColor = false, Parent = parent,
+            Size = UDim2.new(1, 0, 0, h),
+            BackgroundColor3 = c1,
+            Text = "",
+            BorderSizePixel = 0,
+            AutoButtonColor = false,
+            ZIndex = 120,
+            Parent = parent,
         })
         corner(btn, 10)
         new("UIGradient", {Color = ColorSequence.new(c1, c2), Rotation = 90, Parent = btn})
-        local s = new("UIStroke", {Thickness = 1, Color = COLOR.White, Transparency = 0.7, Parent = btn})
+        local s = new("UIStroke", {
+            Thickness = 1,
+            Color = COLOR.White,
+            Transparency = 0.7,
+            Parent = btn,
+        })
         local lbl = new("TextLabel", {
-            Size = UDim2.new(1, -20, 1, 0), Position = UDim2.new(0, 10, 0, 0),
+            Size = UDim2.new(1, -20, 1, 0),
+            Position = UDim2.new(0, 10, 0, 0),
             BackgroundTransparency = 1,
-            Text = (icon and (icon .. "  ") or "") .. text,
-            TextColor3 = COLOR.White, Font = Enum.Font.GothamBold, TextSize = 13,
-            TextXAlignment = Enum.TextXAlignment.Left, Parent = btn,
+            Text = text,
+            TextColor3 = COLOR.White,
+            Font = Enum.Font.GothamBold,
+            TextSize = 13,
+            TextXAlignment = Enum.TextXAlignment.Left,
+            ZIndex = 130,
+            Parent = btn,
         })
         btn.MouseEnter:Connect(function()
-            tween(btn, {Size = UDim2.new(1.02, 0, 0, h)}, 0.2):Play()
-            tween(s, {Transparency = 0.2}, 0.2):Play()
+            pcall(function()
+                tween(btn, {Size = UDim2.new(1.02, 0, 0, h)}, 0.2):Play()
+                tween(s, {Transparency = 0.2}, 0.2):Play()
+            end)
         end)
         btn.MouseLeave:Connect(function()
-            tween(btn, {Size = UDim2.new(1, 0, 0, h)}, 0.2):Play()
-            tween(s, {Transparency = 0.7}, 0.2):Play()
+            pcall(function()
+                tween(btn, {Size = UDim2.new(1, 0, 0, h)}, 0.2):Play()
+                tween(s, {Transparency = 0.7}, 0.2):Play()
+            end)
         end)
         return btn, lbl
     end
 
-    local SaveBtn, SaveLbl = makePremiumBtn(Content, "Save Posisi ke Slot Baru", COLOR.Green1, COLOR.Green2, "💾")
+    local SaveBtn, SaveLbl = makePremiumBtn(Content, "Save Posisi ke Slot Baru", COLOR.Green1, COLOR.Green2)
     SaveBtn.LayoutOrder = 1
-    local FindBtn, FindLbl = makePremiumBtn(Content, "Cari Mobil Terdekat (Root)", Color3.fromRGB(0,150,200), Color3.fromRGB(0,100,150), "🔍")
+
+    local FindBtn, FindLbl = makePremiumBtn(Content, "Cari Mobil Terdekat (Root)", Color3.fromRGB(0, 150, 200), Color3.fromRGB(0, 100, 150))
     FindBtn.LayoutOrder = 2
 
     local PosTitle = new("TextLabel", {
-        Size = UDim2.new(1, 0, 0, 22), BackgroundTransparency = 1,
-        Text = "💾  POSISI TERSIMPAN (0)", TextColor3 = Color3.fromRGB(180, 255, 220),
-        Font = Enum.Font.GothamBlack, TextSize = 11,
-        TextXAlignment = Enum.TextXAlignment.Left, LayoutOrder = 3, Parent = Content,
+        Size = UDim2.new(1, 0, 0, 22),
+        BackgroundTransparency = 1,
+        Text = "POSISI TERSIMPAN (0)",
+        TextColor3 = Color3.fromRGB(180, 255, 220),
+        Font = Enum.Font.GothamBlack,
+        TextSize = 11,
+        TextXAlignment = Enum.TextXAlignment.Left,
+        LayoutOrder = 3,
+        ZIndex = 120,
+        Parent = Content,
     })
 
     local PositionsList = new("ScrollingFrame", {
         Size = UDim2.new(1, 0, 0, 160),
-        BackgroundColor3 = Color3.fromRGB(10, 20, 15), BackgroundTransparency = 0.4,
-        BorderSizePixel = 0, ScrollBarThickness = 2,
+        BackgroundColor3 = Color3.fromRGB(10, 20, 15),
+        BackgroundTransparency = 0.4,
+        BorderSizePixel = 0,
+        ScrollBarThickness = 2,
         ScrollBarImageColor3 = Color3.fromRGB(0, 255, 150),
         CanvasSize = UDim2.new(0, 0, 0, 0),
         AutomaticCanvasSize = Enum.AutomaticSize.Y,
-        LayoutOrder = 4, Parent = Content,
+        LayoutOrder = 4,
+        ZIndex = 120,
+        Parent = Content,
     })
     corner(PositionsList, 10)
-    new("UIListLayout", {SortOrder = Enum.SortOrder.LayoutOrder, Padding = UDim.new(0, 6), HorizontalAlignment = Enum.HorizontalAlignment.Center, Parent = PositionsList})
-    new("UIPadding", {PaddingTop = UDim.new(0, 6), PaddingLeft = UDim.new(0, 6), PaddingRight = UDim.new(0, 6), Parent = PositionsList})
+    new("UIListLayout", {
+        SortOrder = Enum.SortOrder.LayoutOrder,
+        Padding = UDim.new(0, 6),
+        HorizontalAlignment = Enum.HorizontalAlignment.Center,
+        Parent = PositionsList,
+    })
+    new("UIPadding", {
+        PaddingTop = UDim.new(0, 6),
+        PaddingLeft = UDim.new(0, 6),
+        PaddingRight = UDim.new(0, 6),
+        Parent = PositionsList,
+    })
 
     local EmptyLabel = new("TextLabel", {
-        Name = "EmptyLabel", Size = UDim2.new(1, 0, 1, 0),
+        Name = "EmptyLabel",
+        Size = UDim2.new(1, 0, 1, 0),
         BackgroundTransparency = 1,
         Text = "Belum ada posisi tersimpan.\nKlik 'Save Posisi' dulu.",
-        TextColor3 = Color3.fromRGB(120, 180, 150), Font = Enum.Font.Gotham,
-        TextSize = 10, TextWrapped = true, Parent = PositionsList,
+        TextColor3 = Color3.fromRGB(120, 180, 150),
+        Font = Enum.Font.Gotham,
+        TextSize = 10,
+        TextWrapped = true,
+        ZIndex = 120,
+        Parent = PositionsList,
     })
 
     local refreshPositionList
@@ -553,61 +669,100 @@ local function startCarTool()
     local function buildSlotRow(posData, index)
         local row = new("Frame", {
             Size = UDim2.new(1, -4, 0, 58),
-            BackgroundColor3 = Color3.fromRGB(20, 35, 28), BackgroundTransparency = 0.2,
-            BorderSizePixel = 0, LayoutOrder = index, Parent = PositionsList,
+            BackgroundColor3 = Color3.fromRGB(20, 35, 28),
+            BackgroundTransparency = 0.2,
+            BorderSizePixel = 0,
+            LayoutOrder = index,
+            ZIndex = 120,
+            Parent = PositionsList,
         })
         corner(row, 8)
-        new("UIStroke", {Thickness = 1, Color = Color3.fromRGB(0, 255, 150), Transparency = 0.6, Parent = row})
+        new("UIStroke", {
+            Thickness = 1,
+            Color = Color3.fromRGB(0, 255, 150),
+            Transparency = 0.6,
+            Parent = row,
+        })
 
         new("TextLabel", {
-            Size = UDim2.new(1, -16, 0, 20), Position = UDim2.new(0, 8, 0, 4),
+            Size = UDim2.new(1, -16, 0, 20),
+            Position = UDim2.new(0, 8, 0, 4),
             BackgroundTransparency = 1,
-            Text = string.format("%s  •  X:%d Y:%d Z:%d", posData.name,
+            Text = string.format("%s  X:%d Y:%d Z:%d", posData.name,
                 math.floor(posData.pos.X), math.floor(posData.pos.Y), math.floor(posData.pos.Z)),
-            TextColor3 = Color3.fromRGB(180, 255, 220), Font = Enum.Font.GothamBold,
-            TextSize = 10, TextXAlignment = Enum.TextXAlignment.Left,
-            TextTruncate = Enum.TextTruncate.AtEnd, Parent = row,
+            TextColor3 = Color3.fromRGB(180, 255, 220),
+            Font = Enum.Font.GothamBold,
+            TextSize = 10,
+            TextXAlignment = Enum.TextXAlignment.Left,
+            TextTruncate = Enum.TextTruncate.AtEnd,
+            ZIndex = 130,
+            Parent = row,
         })
 
         local tpObj = new("TextButton", {
-            Size = UDim2.new(0.32, -3, 0, 26), Position = UDim2.new(0, 6, 0, 28),
-            BackgroundColor3 = Color3.fromRGB(255, 120, 50), Text = "🚗 TP Object",
-            TextColor3 = COLOR.White, Font = Enum.Font.GothamBold, TextSize = 10,
-            BorderSizePixel = 0, Parent = row,
+            Size = UDim2.new(0.32, -3, 0, 26),
+            Position = UDim2.new(0, 6, 0, 28),
+            BackgroundColor3 = Color3.fromRGB(255, 120, 50),
+            Text = "TP Obj",
+            TextColor3 = COLOR.White,
+            Font = Enum.Font.GothamBold,
+            TextSize = 10,
+            BorderSizePixel = 0,
+            ZIndex = 130,
+            Parent = row,
         })
         corner(tpObj, 6)
 
         local tpPlr = new("TextButton", {
-            Size = UDim2.new(0.32, -3, 0, 26), Position = UDim2.new(0.32, 3, 0, 28),
-            BackgroundColor3 = COLOR.Green1, Text = "🧍 TP Player",
-            TextColor3 = COLOR.White, Font = Enum.Font.GothamBold, TextSize = 10,
-            BorderSizePixel = 0, Parent = row,
+            Size = UDim2.new(0.32, -3, 0, 26),
+            Position = UDim2.new(0.32, 3, 0, 28),
+            BackgroundColor3 = COLOR.Green1,
+            Text = "TP Player",
+            TextColor3 = COLOR.White,
+            Font = Enum.Font.GothamBold,
+            TextSize = 10,
+            BorderSizePixel = 0,
+            ZIndex = 130,
+            Parent = row,
         })
         corner(tpPlr, 6)
 
         local delBtn = new("TextButton", {
-            Size = UDim2.new(0.36, -12, 0, 26), Position = UDim2.new(0.64, 9, 0, 28),
-            BackgroundColor3 = Color3.fromRGB(210, 60, 60), Text = "🗑 Hapus",
-            TextColor3 = COLOR.White, Font = Enum.Font.GothamBold, TextSize = 10,
-            BorderSizePixel = 0, Parent = row,
+            Size = UDim2.new(0.36, -12, 0, 26),
+            Position = UDim2.new(0.64, 9, 0, 28),
+            BackgroundColor3 = Color3.fromRGB(210, 60, 60),
+            Text = "Hapus",
+            TextColor3 = COLOR.White,
+            Font = Enum.Font.GothamBold,
+            TextSize = 10,
+            BorderSizePixel = 0,
+            ZIndex = 130,
+            Parent = row,
         })
         corner(delBtn, 6)
 
         tpObj.MouseButton1Click:Connect(function()
-            tpObj.Text = "⏳..."
+            tpObj.Text = "..."
             teleportCarToPos(posData.pos)
-            task.wait(0.4); tpObj.Text = "✅ OK!"
-            task.wait(0.8); tpObj.Text = "🚗 TP Object"
+            task.wait(0.4)
+            tpObj.Text = "OK"
+            task.wait(0.8)
+            tpObj.Text = "TP Obj"
         end)
         tpPlr.MouseButton1Click:Connect(function()
-            tpPlr.Text = "⏳..."
+            tpPlr.Text = "..."
             teleportPlayerToPos(posData.pos)
-            task.wait(0.4); tpPlr.Text = "✅ OK!"
-            task.wait(0.8); tpPlr.Text = "🧍 TP Player"
+            task.wait(0.4)
+            tpPlr.Text = "OK"
+            task.wait(0.8)
+            tpPlr.Text = "TP Player"
         end)
         delBtn.MouseButton1Click:Connect(function()
             for i, p in ipairs(savedPositions) do
-                if p == posData then table.remove(savedPositions, i); break end
+                if p == posData then
+                    table.remove(savedPositions, i)
+                    break
+                end
             end
             markSaveDirty()
             refreshPositionList()
@@ -616,143 +771,201 @@ local function startCarTool()
 
     refreshPositionList = function()
         for _, c in pairs(PositionsList:GetChildren()) do
-            if c:IsA("Frame") then c:Destroy() end
+            if c:IsA("Frame") then
+                c:Destroy()
+            end
         end
-        PosTitle.Text = "💾  POSISI TERSIMPAN (" .. #savedPositions .. ")"
+        PosTitle.Text = "POSISI TERSIMPAN (" .. #savedPositions .. ")"
         if #savedPositions == 0 then
             EmptyLabel.Visible = true
         else
             EmptyLabel.Visible = false
-            for i, pd in ipairs(savedPositions) do buildSlotRow(pd, i) end
+            for i, pd in ipairs(savedPositions) do
+                buildSlotRow(pd, i)
+            end
         end
     end
     refreshPositionList()
 
-    local Sep = new("Frame", {
-        Size = UDim2.new(1, 0, 0, 1), BackgroundColor3 = COLOR.White,
-        BackgroundTransparency = 0.7, BorderSizePixel = 0,
-        LayoutOrder = 5, Parent = Content,
+    new("Frame", {
+        Size = UDim2.new(1, 0, 0, 1),
+        BackgroundColor3 = COLOR.White,
+        BackgroundTransparency = 0.7,
+        BorderSizePixel = 0,
+        LayoutOrder = 5,
+        ZIndex = 120,
+        Parent = Content,
     })
 
     new("TextLabel", {
-        Size = UDim2.new(1, 0, 0, 22), BackgroundTransparency = 1,
-        Text = "✈️  FLY MODE (Analog + WASD)",
-        TextColor3 = Color3.fromRGB(180, 255, 220), Font = Enum.Font.GothamBlack,
-        TextSize = 11, TextXAlignment = Enum.TextXAlignment.Left,
-        LayoutOrder = 6, Parent = Content,
+        Size = UDim2.new(1, 0, 0, 22),
+        BackgroundTransparency = 1,
+        Text = "FLY MODE (Analog + WASD)",
+        TextColor3 = Color3.fromRGB(180, 255, 220),
+        Font = Enum.Font.GothamBlack,
+        TextSize = 11,
+        TextXAlignment = Enum.TextXAlignment.Left,
+        LayoutOrder = 6,
+        ZIndex = 120,
+        Parent = Content,
     })
 
-    local FlyBtn, FlyLbl = makePremiumBtn(Content, "Fly: OFF", Color3.fromRGB(30,30,40), Color3.fromRGB(20,20,30), "✈️")
+    local FlyBtn, FlyLbl = makePremiumBtn(Content, "Fly: OFF", Color3.fromRGB(30, 30, 40), Color3.fromRGB(20, 20, 30))
     FlyBtn.LayoutOrder = 7
 
     local FlySpeedRow = new("Frame", {
-        Size = UDim2.new(1, 0, 0, 38), BackgroundColor3 = Color3.fromRGB(10, 20, 15),
-        BackgroundTransparency = 0.4, BorderSizePixel = 0,
-        LayoutOrder = 8, Parent = Content,
+        Size = UDim2.new(1, 0, 0, 38),
+        BackgroundColor3 = Color3.fromRGB(10, 20, 15),
+        BackgroundTransparency = 0.4,
+        BorderSizePixel = 0,
+        LayoutOrder = 8,
+        ZIndex = 120,
+        Parent = Content,
     })
     corner(FlySpeedRow, 8)
 
     new("TextLabel", {
-        Size = UDim2.new(0.42, 0, 1, 0), Position = UDim2.new(0, 10, 0, 0),
-        BackgroundTransparency = 1, Text = "✈️ Fly Speed:",
-        TextColor3 = Color3.fromRGB(180, 255, 220), Font = Enum.Font.GothamBold,
-        TextSize = 11, TextXAlignment = Enum.TextXAlignment.Left, Parent = FlySpeedRow,
+        Size = UDim2.new(0.42, 0, 1, 0),
+        Position = UDim2.new(0, 10, 0, 0),
+        BackgroundTransparency = 1,
+        Text = "Fly Speed:",
+        TextColor3 = Color3.fromRGB(180, 255, 220),
+        Font = Enum.Font.GothamBold,
+        TextSize = 11,
+        TextXAlignment = Enum.TextXAlignment.Left,
+        ZIndex = 130,
+        Parent = FlySpeedRow,
     })
 
     local FlySpeedBox = new("TextBox", {
-        Size = UDim2.new(0.52, 0, 1, -8), Position = UDim2.new(0.44, 0, 0, 4),
+        Size = UDim2.new(0.52, 0, 1, -8),
+        Position = UDim2.new(0.44, 0, 0, 4),
         BackgroundColor3 = Color3.fromRGB(20, 30, 25),
         PlaceholderText = "Default: 60",
         Text = tostring(flySpeed),
         TextColor3 = Color3.fromRGB(150, 255, 200),
         PlaceholderColor3 = Color3.fromRGB(100, 150, 120),
-        Font = Enum.Font.GothamBold, TextSize = 12, BorderSizePixel = 0,
+        Font = Enum.Font.GothamBold,
+        TextSize = 12,
+        BorderSizePixel = 0,
+        ZIndex = 130,
         Parent = FlySpeedRow,
     })
     corner(FlySpeedBox, 6)
-    new("UIStroke", {Thickness = 1, Color = Color3.fromRGB(0, 200, 130), Transparency = 0.5, Parent = FlySpeedBox})
-
-    local StatusLabel = new("TextLabel", {
-        Size = UDim2.new(1, 0, 0, 22), BackgroundTransparency = 1,
-        Text = "Status: Siap digunakan", TextColor3 = Color3.fromRGB(150, 255, 200),
-        Font = Enum.Font.Gotham, TextSize = 10,
-        TextXAlignment = Enum.TextXAlignment.Left,
-        LayoutOrder = 9, Parent = Content,
+    new("UIStroke", {
+        Thickness = 1,
+        Color = Color3.fromRGB(0, 200, 130),
+        Transparency = 0.5,
+        Parent = FlySpeedBox,
     })
 
-    -- Open/Close
+    local StatusLabel = new("TextLabel", {
+        Size = UDim2.new(1, 0, 0, 22),
+        BackgroundTransparency = 1,
+        Text = "Status: Siap digunakan",
+        TextColor3 = Color3.fromRGB(150, 255, 200),
+        Font = Enum.Font.Gotham,
+        TextSize = 10,
+        TextXAlignment = Enum.TextXAlignment.Left,
+        LayoutOrder = 9,
+        ZIndex = 120,
+        Parent = Content,
+    })
+
+    -- ═══ OPEN/CLOSE ANIMATION (ROBUST) ═══
     local isAnimating = false
+
     local function openGUI()
-        if isAnimating or MainFrame.Visible then return end
+        if MainFrame.Visible then return end
+        if isAnimating then return end
         isAnimating = true
+
+        -- Reset state dulu
         MainFrame.Visible = true
-        MainFrame.Size = UDim2.new(0, 0, 0, 0)
         MainFrame.BackgroundTransparency = 1
         MainStroke.Transparency = 1
-        local tw = tween(MainFrame, {Size = UDim2.new(0, guiW, 0, guiH)}, 0.35, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
-        tw:Play()
-        tween(MainFrame, {BackgroundTransparency = 0}, 0.3):Play()
-        tween(MainStroke, {Transparency = 0.4}, 0.3):Play()
-        tween(ToggleBtn, {Rotation = 90}, 0.35):Play()
-        tw.Completed:Wait()
-        isAnimating = false
-    end
-    local function closeGUI()
-        if isAnimating or not MainFrame.Visible then return end
-        isAnimating = true
-        local tw = tween(MainFrame, {Size = UDim2.new(0, 0, 0, 0)}, 0.25, Enum.EasingStyle.Quad, Enum.EasingDirection.In)
-        tw:Play()
-        tween(MainFrame, {BackgroundTransparency = 1}, 0.2):Play()
-        tween(MainStroke, {Transparency = 1}, 0.2):Play()
-        tween(ToggleBtn, {Rotation = 0}, 0.35):Play()
-        tw.Completed:Wait()
-        MainFrame.Visible = false
-        MainFrame.Size = UDim2.new(0, guiW, 0, guiH)
-        MainFrame.BackgroundTransparency = 0
+
+        -- Animasi
+        pcall(function()
+            local tw = tween(MainFrame, {BackgroundTransparency = 0}, 0.25)
+            tw:Play()
+            tween(MainStroke, {Transparency = 0.4}, 0.25):Play()
+            tween(ToggleBtn, {Rotation = 90}, 0.25):Play()
+        end)
+
+        -- Force reset isAnimating setelah 0.5 detik (safety net)
+        task.wait(0.3)
         isAnimating = false
     end
 
-    bind(ToggleBtn.MouseButton1Click, function()
-        if MainFrame.Visible then closeGUI() else openGUI() end
+    local function closeGUI()
+        if not MainFrame.Visible then return end
+        if isAnimating then return end
+        isAnimating = true
+
+        pcall(function()
+            tween(MainFrame, {BackgroundTransparency = 1}, 0.2):Play()
+            tween(MainStroke, {Transparency = 1}, 0.2):Play()
+            tween(ToggleBtn, {Rotation = 0}, 0.25):Play()
+        end)
+
+        task.wait(0.25)
+        MainFrame.Visible = false
+        MainFrame.BackgroundTransparency = 0
+        MainStroke.Transparency = 0.4
+        isAnimating = false
+    end
+
+    local function toggleGUI()
+        if MainFrame.Visible then
+            closeGUI()
+        else
+            openGUI()
+        end
+    end
+
+    -- Bind events
+    bind(ToggleBtn.MouseButton1Click, toggleGUI)
+    bind(CloseBtn.MouseButton1Click, function()
+        closeGUI()
     end)
-    bind(CloseBtn.MouseButton1Click, function() closeGUI() end)
 
     bind(SaveBtn.MouseButton1Click, function()
         local char = LocalPlayer.Character
         if not char then return end
         local hrp = char:FindFirstChild("HumanoidRootPart")
         if not hrp then return end
-        slotCounter += 1
+        slotCounter = slotCounter + 1
         table.insert(savedPositions, {name = "Slot " .. slotCounter, pos = hrp.Position})
         markSaveDirty()
         refreshPositionList()
-        SaveLbl.Text = "✅  Tersimpan (Slot " .. slotCounter .. ")"
-        StatusLabel.Text = "Status: Posisi disave ke Slot " .. slotCounter
+        SaveLbl.Text = "Tersimpan (Slot " .. slotCounter .. ")"
+        StatusLabel.Text = "Status: Disave ke Slot " .. slotCounter
         task.wait(1.2)
-        SaveLbl.Text = "💾  Save Posisi ke Slot Baru"
+        SaveLbl.Text = "Save Posisi ke Slot Baru"
     end)
 
     bind(FindBtn.MouseButton1Click, function()
         targetVehicleRoot = findNearestCar()
         if targetVehicleRoot then
-            FindLbl.Text = "✅  " .. targetVehicleRoot.Name
+            FindLbl.Text = "Ditemukan: " .. targetVehicleRoot.Name
             StatusLabel.Text = "Status: Mobil ditemukan"
         else
-            FindLbl.Text = "❌  Tidak ada mobil"
+            FindLbl.Text = "Tidak ada mobil"
             StatusLabel.Text = "Status: Tidak ada mobil"
         end
         task.wait(1.5)
-        FindLbl.Text = "🔍  Cari Mobil Terdekat (Root)"
+        FindLbl.Text = "Cari Mobil Terdekat (Root)"
     end)
 
     bind(FlyBtn.MouseButton1Click, function()
         toggleFly()
         if flyEnabled then
-            FlyLbl.Text = "✈️  Fly: ON"
+            FlyLbl.Text = "Fly: ON"
             FlyBtn.BackgroundColor3 = COLOR.Green1
             StatusLabel.Text = "Status: Fly aktif"
         else
-            FlyLbl.Text = "✈️  Fly: OFF"
+            FlyLbl.Text = "Fly: OFF"
             FlyBtn.BackgroundColor3 = Color3.fromRGB(30, 30, 40)
             StatusLabel.Text = "Status: Fly nonaktif"
         end
@@ -763,38 +976,37 @@ local function startCarTool()
         if v and v > 0 and v <= 500 then
             flySpeed = v
             markSaveDirty()
-            StatusLabel.Text = "Status: Fly speed → " .. v
+            StatusLabel.Text = "Status: Fly speed " .. v
         else
             FlySpeedBox.Text = tostring(flySpeed)
-            StatusLabel.Text = "⚠️ Fly speed harus 1-500"
+            StatusLabel.Text = "Fly speed harus 1-500"
         end
     end)
 
     bind(UserInputService.InputBegan, function(input, gp)
         if gp then return end
         if input.KeyCode == Enum.KeyCode.T then
-            if not targetVehicleRoot then targetVehicleRoot = findNearestCar() end
+            if not targetVehicleRoot then
+                targetVehicleRoot = findNearestCar()
+            end
             if #savedPositions > 0 then
                 teleportCarToPos(savedPositions[#savedPositions].pos)
             end
         elseif input.KeyCode == Enum.KeyCode.F then
             toggleFly()
             if flyEnabled then
-                FlyLbl.Text = "✈️  Fly: ON"
+                FlyLbl.Text = "Fly: ON"
                 FlyBtn.BackgroundColor3 = COLOR.Green1
             else
-                FlyLbl.Text = "✈️  Fly: OFF"
+                FlyLbl.Text = "Fly: OFF"
                 FlyBtn.BackgroundColor3 = Color3.fromRGB(30, 30, 40)
             end
         elseif input.KeyCode == Enum.KeyCode.RightControl then
-            if MainFrame.Visible then closeGUI() else openGUI() end
+            toggleGUI()
         end
     end)
 
-    task.wait(0.3)
-    openGUI()
-
-    print("✅ BSTS-ID - LuxxyHub Loaded!")
+    print("[BSTS-ID] Car Tool siap. Klik tombol 'MENU' di kiri layar.")
 end
 
 -- ═══════════════════════════════════════════════════════════════
@@ -802,15 +1014,12 @@ end
 -- ═══════════════════════════════════════════════════════════════
 task.spawn(function()
     if not isBSTSGame() then
-        print("[BSTS-ID] Map tidak sesuai: " .. game.Name .. " (PlaceId: " .. game.PlaceId .. ")")
+        print("[BSTS-ID] Map tidak sesuai: " .. game.Name)
         buildWrongMapUI()
         return
     end
-    print("[BSTS-ID] ✅ Game terdeteksi: " .. game.Name .. " (PlaceId: " .. game.PlaceId .. ")")
+    print("[BSTS-ID] Game terdeteksi. Loading Car Tool...")
     startCarTool()
 end)
 
 print("[BSTS-ID - LuxxyHub] Loaded!")
-print("Brand: " .. CONFIG.BrandName)
-print("Target PlaceId: 114375429517112")
-print("Current Game: " .. game.Name .. " (" .. game.PlaceId .. ")")
