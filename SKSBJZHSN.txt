@@ -2,7 +2,7 @@
 -- BSTS-ID - LuxxyHub
 -- Car Tool + Game Lock + Save Config
 -- PlaceId: 114375429517112
--- v1.5 (Fixed persist + animation back)
+-- v1.6 (typeof fix + persist save)
 -- ═══════════════════════════════════════════════════════════════
 
 local CONFIG = {
@@ -46,7 +46,7 @@ local function tween(inst, props, time, style, dir)
 end
 
 -- ═══════════════════════════════════════════════════════════════
--- CUSTOM SERIALIZE (buat Vector3 yang gak bisa di-JSON)
+-- CUSTOM SERIALIZE (Vector3 → JSON friendly)
 -- ═══════════════════════════════════════════════════════════════
 local function serializePositions(positions)
     local out = {}
@@ -102,7 +102,7 @@ local function saveConfig(data)
     local ok, encoded = pcall(function() return HttpService:JSONEncode(toSave) end)
     if ok and encoded then
         pcall(function() writefile(CONFIG.ConfigFile, encoded) end)
-        print("[BSTS-ID] Config saved (" .. #(toSave.savedPositions or {}) .. " positions)")
+        print("[BSTS-ID] 💾 Config saved (" .. #(toSave.savedPositions or {}) .. " positions)")
     end
 end
 
@@ -118,7 +118,7 @@ local function loadConfig()
                 if data[k] == nil then data[k] = v end
             end
             data.savedPositions = deserializePositions(data.savedPositions)
-            print("[BSTS-ID] Config loaded (" .. #data.savedPositions .. " positions)")
+            print("[BSTS-ID] 📂 Config loaded (" .. #data.savedPositions .. " positions)")
             return data
         end
     end
@@ -223,7 +223,7 @@ local function buildWrongMapUI()
         Position = UDim2.new(0, 30, 1, -30),
         BackgroundColor3 = COLOR.Error,
         BorderSizePixel = 0, Text = "TUTUP",
-        TextColor3 = COLOR.White,
+        TextColor3 = Color3.fromRGB(255, 255, 255),
         Font = Enum.Font.GothamBold, TextSize = 14,
         ZIndex = 100, Parent = Main,
     })
@@ -527,7 +527,6 @@ local function startCarTool()
         end
     end)
 
-    -- Header
     local Header = new("Frame", {
         Size = UDim2.new(1, 0, 0, 50),
         BackgroundColor3 = Color3.fromRGB(0, 0, 0),
@@ -582,7 +581,6 @@ local function startCarTool()
     })
     corner(CloseBtn, 13)
 
-    -- Content
     local Content = new("ScrollingFrame", {
         Size = UDim2.new(1, -16, 1, -60),
         Position = UDim2.new(0, 8, 0, 55),
@@ -712,9 +710,11 @@ local function startCarTool()
 
     local refreshPositionList
 
-    -- ═══ BUILD SLOT ROW ═══
+    -- ═══ BUILD SLOT ROW (FIXED pakai typeof) ═══
     local function buildSlotRow(posData, index)
-        if type(posData) ~= "table" or type(posData.pos) ~= "Vector3" then
+        -- FIX: pakai typeof(), bukan type()
+        if type(posData) ~= "table" or typeof(posData.pos) ~= "Vector3" then
+            print("[BSTS-ID] ⚠️ Skip entry invalid: " .. tostring(posData and posData.name))
             return
         end
 
@@ -820,25 +820,24 @@ local function startCarTool()
         end)
     end
 
-    -- ═══ REFRESH POSITION LIST (FIXED) ═══
+    -- ═══ REFRESH LIST (FIXED pakai typeof) ═══
     refreshPositionList = function()
-        -- Bersihin entry corrupt
+        -- Bersihin entry corrupt (pakai typeof!)
         for i = #savedPositions, 1, -1 do
             local pd = savedPositions[i]
-            if type(pd) ~= "table" or type(pd.pos) ~= "Vector3" or type(pd.name) ~= "string" then
+            if type(pd) ~= "table" or typeof(pd.pos) ~= "Vector3" or type(pd.name) ~= "string" then
                 table.remove(savedPositions, i)
                 markSaveDirty()
+                print("[BSTS-ID] 🗑 Hapus entry corrupt index " .. i)
             end
         end
 
-        -- Hapus semua row lama
         for _, c in pairs(PositionsList:GetChildren()) do
             if c:IsA("Frame") then
                 c:Destroy()
             end
         end
 
-        -- Update title
         PosTitle.Text = "💾  POSISI TERSIMPAN (" .. #savedPositions .. ")"
 
         if #savedPositions == 0 then
@@ -853,7 +852,7 @@ local function startCarTool()
             end
         end
 
-        -- Set CanvasSize manual (FIX)
+        -- Set CanvasSize manual
         local contentHeight = 0
         if #savedPositions == 0 then
             contentHeight = 72
@@ -862,7 +861,7 @@ local function startCarTool()
         end
         PositionsList.CanvasSize = UDim2.new(0, 0, 0, contentHeight)
 
-        print("[BSTS-ID] Refresh list: " .. #savedPositions .. " positions, canvas: " .. contentHeight)
+        print("[BSTS-ID] 📋 Refresh list: " .. #savedPositions .. " positions, canvas: " .. contentHeight)
     end
 
     task.spawn(function()
@@ -975,7 +974,6 @@ local function startCarTool()
             tween(ToggleBtn, {Rotation = 90}, 0.35):Play()
         end)
 
-        -- Safety net: pastikan size balik normal kalau tween gagal
         task.spawn(function()
             task.wait(0.8)
             if MainFrame.Visible and MainFrame.Size ~= UDim2.new(0, guiW, 0, guiH) then
@@ -1018,7 +1016,6 @@ local function startCarTool()
         end
     end
 
-    -- Bind events
     bind(ToggleBtn.MouseButton1Click, toggleGUI)
     bind(CloseBtn.MouseButton1Click, closeGUI)
 
