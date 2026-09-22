@@ -2,7 +2,7 @@
 -- BSTS-ID - LuxxyHub
 -- Car Tool + Game Lock + Save Config
 -- PlaceId: 114375429517112
--- v1.3 (Robust UI)
+-- v1.4 (Fixed config corrupt + robust UI)
 -- ═══════════════════════════════════════════════════════════════
 
 local CONFIG = {
@@ -35,7 +35,7 @@ local function new(class, props)
     for k, v in pairs(props or {}) do inst[k] = v end
     return inst
 end
-local function corner(p, r) 
+local function corner(p, r)
     local c = Instance.new("UICorner")
     c.CornerRadius = UDim.new(0, r or 8)
     c.Parent = p
@@ -73,6 +73,17 @@ local function loadConfig()
         if ok2 and type(data) == "table" then
             for k, v in pairs(defaultConfig) do
                 if data[k] == nil then data[k] = v end
+            end
+            -- Validate savedPositions
+            if type(data.savedPositions) ~= "table" then
+                data.savedPositions = {}
+            end
+            -- Cleanup corrupt entries
+            for i = #data.savedPositions, 1, -1 do
+                local pd = data.savedPositions[i]
+                if type(pd) ~= "table" or type(pd.pos) ~= "Vector3" or type(pd.name) ~= "string" then
+                    table.remove(data.savedPositions, i)
+                end
             end
             return data
         end
@@ -197,14 +208,14 @@ local function startCarTool()
         for _, i in pairs(activeInstances) do pcall(function() if i and i.Parent then i:Destroy() end end) end
         activeConnections, activeInstances = {}, {}
     end
-    local function bind(sig, cb) 
+    local function bind(sig, cb)
         local c = sig:Connect(cb)
         table.insert(activeConnections, c)
-        return c 
+        return c
     end
-    local function track(i) 
+    local function track(i)
         table.insert(activeInstances, i)
-        return i 
+        return i
     end
 
     -- Cleanup GUI lama
@@ -406,13 +417,13 @@ local function startCarTool()
         Parent = LocalPlayer:WaitForChild("PlayerGui"),
     }))
 
-    -- Toggle Button (FAB)
+    -- Toggle Button (FAB) — pakai ⚙️
     local ToggleBtn = track(new("TextButton", {
         Size = UDim2.new(0, 50, 0, 50),
         Position = UDim2.new(0, 15, 0, 100),
         BackgroundColor3 = COLOR.Green1,
-        Text = "MENU",
-        TextSize = 12,
+        Text = "⚙️",
+        TextSize = 24,
         TextColor3 = COLOR.White,
         Font = Enum.Font.GothamBold,
         BorderSizePixel = 0,
@@ -507,7 +518,7 @@ local function startCarTool()
         Size = UDim2.new(1, -50, 1, -5),
         Position = UDim2.new(0, 12, 0, 0),
         BackgroundTransparency = 1,
-        Text = "BSTS-ID - LuxxyHub",
+        Text = "🚌 BSTS-ID - LuxxyHub",
         TextColor3 = COLOR.White,
         Font = Enum.Font.GothamBlack,
         TextSize = 15,
@@ -518,7 +529,7 @@ local function startCarTool()
         Size = UDim2.new(1, -50, 0, 12),
         Position = UDim2.new(0, 12, 1, -15),
         BackgroundTransparency = 1,
-        Text = "Premium - Save Config",
+        Text = "Premium • Save Config",
         TextColor3 = Color3.fromRGB(150, 255, 200),
         Font = Enum.Font.Gotham,
         TextSize = 9,
@@ -530,7 +541,7 @@ local function startCarTool()
         Size = UDim2.new(0, 26, 0, 26),
         Position = UDim2.new(1, -34, 0, 12),
         BackgroundColor3 = Color3.fromRGB(255, 80, 80),
-        Text = "X",
+        Text = "✕",
         TextColor3 = COLOR.White,
         Font = Enum.Font.GothamBold,
         TextSize = 13,
@@ -605,16 +616,16 @@ local function startCarTool()
         return btn, lbl
     end
 
-    local SaveBtn, SaveLbl = makePremiumBtn(Content, "Save Posisi ke Slot Baru", COLOR.Green1, COLOR.Green2)
+    local SaveBtn, SaveLbl = makePremiumBtn(Content, "💾  Save Posisi ke Slot Baru", COLOR.Green1, COLOR.Green2)
     SaveBtn.LayoutOrder = 1
 
-    local FindBtn, FindLbl = makePremiumBtn(Content, "Cari Mobil Terdekat (Root)", Color3.fromRGB(0, 150, 200), Color3.fromRGB(0, 100, 150))
+    local FindBtn, FindLbl = makePremiumBtn(Content, "🔍  Cari Mobil Terdekat (Root)", Color3.fromRGB(0, 150, 200), Color3.fromRGB(0, 100, 150))
     FindBtn.LayoutOrder = 2
 
     local PosTitle = new("TextLabel", {
         Size = UDim2.new(1, 0, 0, 22),
         BackgroundTransparency = 1,
-        Text = "POSISI TERSIMPAN (0)",
+        Text = "💾  POSISI TERSIMPAN (0)",
         TextColor3 = Color3.fromRGB(180, 255, 220),
         Font = Enum.Font.GothamBlack,
         TextSize = 11,
@@ -666,7 +677,13 @@ local function startCarTool()
 
     local refreshPositionList
 
+    -- ═══ BUILD SLOT ROW (FIXED) ═══
     local function buildSlotRow(posData, index)
+        -- VALIDASI (fix error "index nil with 'X'")
+        if type(posData) ~= "table" or type(posData.pos) ~= "Vector3" or type(posData.name) ~= "string" then
+            return
+        end
+
         local row = new("Frame", {
             Size = UDim2.new(1, -4, 0, 58),
             BackgroundColor3 = Color3.fromRGB(20, 35, 28),
@@ -688,7 +705,7 @@ local function startCarTool()
             Size = UDim2.new(1, -16, 0, 20),
             Position = UDim2.new(0, 8, 0, 4),
             BackgroundTransparency = 1,
-            Text = string.format("%s  X:%d Y:%d Z:%d", posData.name,
+            Text = string.format("%s  •  X:%d Y:%d Z:%d", posData.name,
                 math.floor(posData.pos.X), math.floor(posData.pos.Y), math.floor(posData.pos.Z)),
             TextColor3 = Color3.fromRGB(180, 255, 220),
             Font = Enum.Font.GothamBold,
@@ -703,7 +720,7 @@ local function startCarTool()
             Size = UDim2.new(0.32, -3, 0, 26),
             Position = UDim2.new(0, 6, 0, 28),
             BackgroundColor3 = Color3.fromRGB(255, 120, 50),
-            Text = "TP Obj",
+            Text = "🚗 TP Obj",
             TextColor3 = COLOR.White,
             Font = Enum.Font.GothamBold,
             TextSize = 10,
@@ -717,7 +734,7 @@ local function startCarTool()
             Size = UDim2.new(0.32, -3, 0, 26),
             Position = UDim2.new(0.32, 3, 0, 28),
             BackgroundColor3 = COLOR.Green1,
-            Text = "TP Player",
+            Text = "🧍 TP Player",
             TextColor3 = COLOR.White,
             Font = Enum.Font.GothamBold,
             TextSize = 10,
@@ -731,7 +748,7 @@ local function startCarTool()
             Size = UDim2.new(0.36, -12, 0, 26),
             Position = UDim2.new(0.64, 9, 0, 28),
             BackgroundColor3 = Color3.fromRGB(210, 60, 60),
-            Text = "Hapus",
+            Text = "🗑 Hapus",
             TextColor3 = COLOR.White,
             Font = Enum.Font.GothamBold,
             TextSize = 10,
@@ -742,20 +759,20 @@ local function startCarTool()
         corner(delBtn, 6)
 
         tpObj.MouseButton1Click:Connect(function()
-            tpObj.Text = "..."
+            tpObj.Text = "⏳..."
             teleportCarToPos(posData.pos)
             task.wait(0.4)
-            tpObj.Text = "OK"
+            tpObj.Text = "✅ OK!"
             task.wait(0.8)
-            tpObj.Text = "TP Obj"
+            tpObj.Text = "🚗 TP Obj"
         end)
         tpPlr.MouseButton1Click:Connect(function()
-            tpPlr.Text = "..."
+            tpPlr.Text = "⏳..."
             teleportPlayerToPos(posData.pos)
             task.wait(0.4)
-            tpPlr.Text = "OK"
+            tpPlr.Text = "✅ OK!"
             task.wait(0.8)
-            tpPlr.Text = "TP Player"
+            tpPlr.Text = "🧍 TP Player"
         end)
         delBtn.MouseButton1Click:Connect(function()
             for i, p in ipairs(savedPositions) do
@@ -769,23 +786,37 @@ local function startCarTool()
         end)
     end
 
+    -- ═══ REFRESH LIST (FIXED) ═══
     refreshPositionList = function()
+        -- Bersihin data corrupt dulu
+        for i = #savedPositions, 1, -1 do
+            local pd = savedPositions[i]
+            if type(pd) ~= "table" or type(pd.pos) ~= "Vector3" or type(pd.name) ~= "string" then
+                table.remove(savedPositions, i)
+                markSaveDirty()
+            end
+        end
+
         for _, c in pairs(PositionsList:GetChildren()) do
             if c:IsA("Frame") then
                 c:Destroy()
             end
         end
-        PosTitle.Text = "POSISI TERSIMPAN (" .. #savedPositions .. ")"
+        PosTitle.Text = "💾  POSISI TERSIMPAN (" .. #savedPositions .. ")"
         if #savedPositions == 0 then
             EmptyLabel.Visible = true
         else
             EmptyLabel.Visible = false
             for i, pd in ipairs(savedPositions) do
-                buildSlotRow(pd, i)
+                pcall(buildSlotRow, pd, i) -- pakai pcall biar gak crash
             end
         end
     end
-    refreshPositionList()
+
+    -- Panggil refresh di background thread
+    task.spawn(function()
+        pcall(refreshPositionList)
+    end)
 
     new("Frame", {
         Size = UDim2.new(1, 0, 0, 1),
@@ -800,7 +831,7 @@ local function startCarTool()
     new("TextLabel", {
         Size = UDim2.new(1, 0, 0, 22),
         BackgroundTransparency = 1,
-        Text = "FLY MODE (Analog + WASD)",
+        Text = "✈️  FLY MODE (Analog + WASD)",
         TextColor3 = Color3.fromRGB(180, 255, 220),
         Font = Enum.Font.GothamBlack,
         TextSize = 11,
@@ -810,7 +841,7 @@ local function startCarTool()
         Parent = Content,
     })
 
-    local FlyBtn, FlyLbl = makePremiumBtn(Content, "Fly: OFF", Color3.fromRGB(30, 30, 40), Color3.fromRGB(20, 20, 30))
+    local FlyBtn, FlyLbl = makePremiumBtn(Content, "✈️  Fly: OFF", Color3.fromRGB(30, 30, 40), Color3.fromRGB(20, 20, 30))
     FlyBtn.LayoutOrder = 7
 
     local FlySpeedRow = new("Frame", {
@@ -828,7 +859,7 @@ local function startCarTool()
         Size = UDim2.new(0.42, 0, 1, 0),
         Position = UDim2.new(0, 10, 0, 0),
         BackgroundTransparency = 1,
-        Text = "Fly Speed:",
+        Text = "✈️ Fly Speed:",
         TextColor3 = Color3.fromRGB(180, 255, 220),
         Font = Enum.Font.GothamBold,
         TextSize = 11,
@@ -880,20 +911,16 @@ local function startCarTool()
         if isAnimating then return end
         isAnimating = true
 
-        -- Reset state dulu
         MainFrame.Visible = true
         MainFrame.BackgroundTransparency = 1
         MainStroke.Transparency = 1
 
-        -- Animasi
         pcall(function()
-            local tw = tween(MainFrame, {BackgroundTransparency = 0}, 0.25)
-            tw:Play()
+            tween(MainFrame, {BackgroundTransparency = 0}, 0.25):Play()
             tween(MainStroke, {Transparency = 0.4}, 0.25):Play()
             tween(ToggleBtn, {Rotation = 90}, 0.25):Play()
         end)
 
-        -- Force reset isAnimating setelah 0.5 detik (safety net)
         task.wait(0.3)
         isAnimating = false
     end
@@ -924,7 +951,7 @@ local function startCarTool()
         end
     end
 
-    -- Bind events
+    -- ═══ BIND EVENTS ═══
     bind(ToggleBtn.MouseButton1Click, toggleGUI)
     bind(CloseBtn.MouseButton1Click, function()
         closeGUI()
@@ -939,33 +966,33 @@ local function startCarTool()
         table.insert(savedPositions, {name = "Slot " .. slotCounter, pos = hrp.Position})
         markSaveDirty()
         refreshPositionList()
-        SaveLbl.Text = "Tersimpan (Slot " .. slotCounter .. ")"
+        SaveLbl.Text = "✅  Tersimpan (Slot " .. slotCounter .. ")"
         StatusLabel.Text = "Status: Disave ke Slot " .. slotCounter
         task.wait(1.2)
-        SaveLbl.Text = "Save Posisi ke Slot Baru"
+        SaveLbl.Text = "💾  Save Posisi ke Slot Baru"
     end)
 
     bind(FindBtn.MouseButton1Click, function()
         targetVehicleRoot = findNearestCar()
         if targetVehicleRoot then
-            FindLbl.Text = "Ditemukan: " .. targetVehicleRoot.Name
+            FindLbl.Text = "✅  " .. targetVehicleRoot.Name
             StatusLabel.Text = "Status: Mobil ditemukan"
         else
-            FindLbl.Text = "Tidak ada mobil"
+            FindLbl.Text = "❌  Tidak ada mobil"
             StatusLabel.Text = "Status: Tidak ada mobil"
         end
         task.wait(1.5)
-        FindLbl.Text = "Cari Mobil Terdekat (Root)"
+        FindLbl.Text = "🔍  Cari Mobil Terdekat (Root)"
     end)
 
     bind(FlyBtn.MouseButton1Click, function()
         toggleFly()
         if flyEnabled then
-            FlyLbl.Text = "Fly: ON"
+            FlyLbl.Text = "✈️  Fly: ON"
             FlyBtn.BackgroundColor3 = COLOR.Green1
             StatusLabel.Text = "Status: Fly aktif"
         else
-            FlyLbl.Text = "Fly: OFF"
+            FlyLbl.Text = "✈️  Fly: OFF"
             FlyBtn.BackgroundColor3 = Color3.fromRGB(30, 30, 40)
             StatusLabel.Text = "Status: Fly nonaktif"
         end
@@ -976,10 +1003,10 @@ local function startCarTool()
         if v and v > 0 and v <= 500 then
             flySpeed = v
             markSaveDirty()
-            StatusLabel.Text = "Status: Fly speed " .. v
+            StatusLabel.Text = "Status: Fly speed → " .. v
         else
             FlySpeedBox.Text = tostring(flySpeed)
-            StatusLabel.Text = "Fly speed harus 1-500"
+            StatusLabel.Text = "⚠️ Fly speed harus 1-500"
         end
     end)
 
@@ -995,10 +1022,10 @@ local function startCarTool()
         elseif input.KeyCode == Enum.KeyCode.F then
             toggleFly()
             if flyEnabled then
-                FlyLbl.Text = "Fly: ON"
+                FlyLbl.Text = "✈️  Fly: ON"
                 FlyBtn.BackgroundColor3 = COLOR.Green1
             else
-                FlyLbl.Text = "Fly: OFF"
+                FlyLbl.Text = "✈️  Fly: OFF"
                 FlyBtn.BackgroundColor3 = Color3.fromRGB(30, 30, 40)
             end
         elseif input.KeyCode == Enum.KeyCode.RightControl then
@@ -1006,7 +1033,8 @@ local function startCarTool()
         end
     end)
 
-    print("[BSTS-ID] Car Tool siap. Klik tombol 'MENU' di kiri layar.")
+    print("[BSTS-ID] ✅ Car Tool siap!")
+    print("[BSTS-ID] Klik tombol ⚙️ di kiri layar buat buka GUI")
 end
 
 -- ═══════════════════════════════════════════════════════════════
@@ -1014,11 +1042,11 @@ end
 -- ═══════════════════════════════════════════════════════════════
 task.spawn(function()
     if not isBSTSGame() then
-        print("[BSTS-ID] Map tidak sesuai: " .. game.Name)
+        print("[BSTS-ID] ⚠️ Map tidak sesuai: " .. game.Name)
         buildWrongMapUI()
         return
     end
-    print("[BSTS-ID] Game terdeteksi. Loading Car Tool...")
+    print("[BSTS-ID] ✅ Game terdeteksi. Loading Car Tool...")
     startCarTool()
 end)
 
