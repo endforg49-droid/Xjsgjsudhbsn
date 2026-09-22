@@ -2,7 +2,7 @@
 -- BSTS-ID - LuxxyHub
 -- Car Tool + Game Lock + Save Config
 -- PlaceId: 114375429517112
--- v1.4 (Fixed config corrupt + robust UI)
+-- v1.5 (Fixed persist + animation back)
 -- ═══════════════════════════════════════════════════════════════
 
 local CONFIG = {
@@ -46,6 +46,39 @@ local function tween(inst, props, time, style, dir)
 end
 
 -- ═══════════════════════════════════════════════════════════════
+-- CUSTOM SERIALIZE (buat Vector3 yang gak bisa di-JSON)
+-- ═══════════════════════════════════════════════════════════════
+local function serializePositions(positions)
+    local out = {}
+    if type(positions) ~= "table" then return out end
+    for _, p in ipairs(positions) do
+        if type(p) == "table" and p.pos then
+            table.insert(out, {
+                name = tostring(p.name or "Slot"),
+                x = tonumber(p.pos.X) or 0,
+                y = tonumber(p.pos.Y) or 0,
+                z = tonumber(p.pos.Z) or 0,
+            })
+        end
+    end
+    return out
+end
+
+local function deserializePositions(data)
+    local out = {}
+    if type(data) ~= "table" then return out end
+    for _, p in ipairs(data) do
+        if type(p) == "table" and type(p.x) == "number" and type(p.y) == "number" and type(p.z) == "number" then
+            table.insert(out, {
+                name = tostring(p.name or "Slot"),
+                pos = Vector3.new(p.x, p.y, p.z),
+            })
+        end
+    end
+    return out
+end
+
+-- ═══════════════════════════════════════════════════════════════
 -- CONFIG SAVE/LOAD
 -- ═══════════════════════════════════════════════════════════════
 local defaultConfig = {
@@ -58,9 +91,19 @@ local defaultConfig = {
 
 local function saveConfig(data)
     if not writefile then return end
-    pcall(function()
-        writefile(CONFIG.ConfigFile, HttpService:JSONEncode(data))
-    end)
+    local toSave = {}
+    for k, v in pairs(data) do
+        if k == "savedPositions" then
+            toSave[k] = serializePositions(v)
+        else
+            toSave[k] = v
+        end
+    end
+    local ok, encoded = pcall(function() return HttpService:JSONEncode(toSave) end)
+    if ok and encoded then
+        pcall(function() writefile(CONFIG.ConfigFile, encoded) end)
+        print("[BSTS-ID] Config saved (" .. #(toSave.savedPositions or {}) .. " positions)")
+    end
 end
 
 local function loadConfig()
@@ -74,17 +117,8 @@ local function loadConfig()
             for k, v in pairs(defaultConfig) do
                 if data[k] == nil then data[k] = v end
             end
-            -- Validate savedPositions
-            if type(data.savedPositions) ~= "table" then
-                data.savedPositions = {}
-            end
-            -- Cleanup corrupt entries
-            for i = #data.savedPositions, 1, -1 do
-                local pd = data.savedPositions[i]
-                if type(pd) ~= "table" or type(pd.pos) ~= "Vector3" or type(pd.name) ~= "string" then
-                    table.remove(data.savedPositions, i)
-                end
-            end
+            data.savedPositions = deserializePositions(data.savedPositions)
+            print("[BSTS-ID] Config loaded (" .. #data.savedPositions .. " positions)")
             return data
         end
     end
@@ -218,7 +252,6 @@ local function startCarTool()
         return i
     end
 
-    -- Cleanup GUI lama
     pcall(function()
         local pg = LocalPlayer:WaitForChild("PlayerGui")
         local old = pg:FindFirstChild("BSTS_LuxxyHub")
@@ -417,7 +450,6 @@ local function startCarTool()
         Parent = LocalPlayer:WaitForChild("PlayerGui"),
     }))
 
-    -- Toggle Button (FAB) — pakai ⚙️
     local ToggleBtn = track(new("TextButton", {
         Size = UDim2.new(0, 50, 0, 50),
         Position = UDim2.new(0, 15, 0, 100),
@@ -441,7 +473,6 @@ local function startCarTool()
         Parent = ToggleBtn,
     })
 
-    -- Main Frame
     local MainFrame = track(new("Frame", {
         Name = "MainFrame",
         AnchorPoint = Vector2.new(0.5, 0.5),
@@ -636,14 +667,13 @@ local function startCarTool()
     })
 
     local PositionsList = new("ScrollingFrame", {
-        Size = UDim2.new(1, 0, 0, 160),
+        Size = UDim2.new(1, 0, 0, 200),
         BackgroundColor3 = Color3.fromRGB(10, 20, 15),
         BackgroundTransparency = 0.4,
         BorderSizePixel = 0,
-        ScrollBarThickness = 2,
+        ScrollBarThickness = 3,
         ScrollBarImageColor3 = Color3.fromRGB(0, 255, 150),
         CanvasSize = UDim2.new(0, 0, 0, 0),
-        AutomaticCanvasSize = Enum.AutomaticSize.Y,
         LayoutOrder = 4,
         ZIndex = 120,
         Parent = Content,
@@ -657,6 +687,7 @@ local function startCarTool()
     })
     new("UIPadding", {
         PaddingTop = UDim.new(0, 6),
+        PaddingBottom = UDim.new(0, 6),
         PaddingLeft = UDim.new(0, 6),
         PaddingRight = UDim.new(0, 6),
         Parent = PositionsList,
@@ -664,33 +695,36 @@ local function startCarTool()
 
     local EmptyLabel = new("TextLabel", {
         Name = "EmptyLabel",
-        Size = UDim2.new(1, 0, 1, 0),
+        Size = UDim2.new(1, -12, 0, 60),
         BackgroundTransparency = 1,
         Text = "Belum ada posisi tersimpan.\nKlik 'Save Posisi' dulu.",
         TextColor3 = Color3.fromRGB(120, 180, 150),
         Font = Enum.Font.Gotham,
-        TextSize = 10,
+        TextSize = 11,
         TextWrapped = true,
-        ZIndex = 120,
+        ZIndex = 121,
+        LayoutOrder = 0,
         Parent = PositionsList,
     })
 
+    local ROW_HEIGHT = 58
+    local ROW_PADDING = 6
+
     local refreshPositionList
 
-    -- ═══ BUILD SLOT ROW (FIXED) ═══
+    -- ═══ BUILD SLOT ROW ═══
     local function buildSlotRow(posData, index)
-        -- VALIDASI (fix error "index nil with 'X'")
-        if type(posData) ~= "table" or type(posData.pos) ~= "Vector3" or type(posData.name) ~= "string" then
+        if type(posData) ~= "table" or type(posData.pos) ~= "Vector3" then
             return
         end
 
         local row = new("Frame", {
-            Size = UDim2.new(1, -4, 0, 58),
+            Size = UDim2.new(1, 0, 0, ROW_HEIGHT),
             BackgroundColor3 = Color3.fromRGB(20, 35, 28),
             BackgroundTransparency = 0.2,
             BorderSizePixel = 0,
             LayoutOrder = index,
-            ZIndex = 120,
+            ZIndex = 121,
             Parent = PositionsList,
         })
         corner(row, 8)
@@ -705,14 +739,14 @@ local function startCarTool()
             Size = UDim2.new(1, -16, 0, 20),
             Position = UDim2.new(0, 8, 0, 4),
             BackgroundTransparency = 1,
-            Text = string.format("%s  •  X:%d Y:%d Z:%d", posData.name,
+            Text = string.format("%s  •  X:%d Y:%d Z:%d", posData.name or "Slot",
                 math.floor(posData.pos.X), math.floor(posData.pos.Y), math.floor(posData.pos.Z)),
             TextColor3 = Color3.fromRGB(180, 255, 220),
             Font = Enum.Font.GothamBold,
             TextSize = 10,
             TextXAlignment = Enum.TextXAlignment.Left,
             TextTruncate = Enum.TextTruncate.AtEnd,
-            ZIndex = 130,
+            ZIndex = 122,
             Parent = row,
         })
 
@@ -725,7 +759,7 @@ local function startCarTool()
             Font = Enum.Font.GothamBold,
             TextSize = 10,
             BorderSizePixel = 0,
-            ZIndex = 130,
+            ZIndex = 122,
             Parent = row,
         })
         corner(tpObj, 6)
@@ -739,7 +773,7 @@ local function startCarTool()
             Font = Enum.Font.GothamBold,
             TextSize = 10,
             BorderSizePixel = 0,
-            ZIndex = 130,
+            ZIndex = 122,
             Parent = row,
         })
         corner(tpPlr, 6)
@@ -753,7 +787,7 @@ local function startCarTool()
             Font = Enum.Font.GothamBold,
             TextSize = 10,
             BorderSizePixel = 0,
-            ZIndex = 130,
+            ZIndex = 122,
             Parent = row,
         })
         corner(delBtn, 6)
@@ -786,9 +820,9 @@ local function startCarTool()
         end)
     end
 
-    -- ═══ REFRESH LIST (FIXED) ═══
+    -- ═══ REFRESH POSITION LIST (FIXED) ═══
     refreshPositionList = function()
-        -- Bersihin data corrupt dulu
+        -- Bersihin entry corrupt
         for i = #savedPositions, 1, -1 do
             local pd = savedPositions[i]
             if type(pd) ~= "table" or type(pd.pos) ~= "Vector3" or type(pd.name) ~= "string" then
@@ -797,23 +831,40 @@ local function startCarTool()
             end
         end
 
+        -- Hapus semua row lama
         for _, c in pairs(PositionsList:GetChildren()) do
             if c:IsA("Frame") then
                 c:Destroy()
             end
         end
+
+        -- Update title
         PosTitle.Text = "💾  POSISI TERSIMPAN (" .. #savedPositions .. ")"
+
         if #savedPositions == 0 then
             EmptyLabel.Visible = true
         else
             EmptyLabel.Visible = false
             for i, pd in ipairs(savedPositions) do
-                pcall(buildSlotRow, pd, i) -- pakai pcall biar gak crash
+                local ok, err = pcall(buildSlotRow, pd, i)
+                if not ok then
+                    warn("[BSTS-ID] buildSlotRow error: " .. tostring(err))
+                end
             end
         end
+
+        -- Set CanvasSize manual (FIX)
+        local contentHeight = 0
+        if #savedPositions == 0 then
+            contentHeight = 72
+        else
+            contentHeight = #savedPositions * (ROW_HEIGHT + ROW_PADDING) + 12
+        end
+        PositionsList.CanvasSize = UDim2.new(0, 0, 0, contentHeight)
+
+        print("[BSTS-ID] Refresh list: " .. #savedPositions .. " positions, canvas: " .. contentHeight)
     end
 
-    -- Panggil refresh di background thread
     task.spawn(function()
         pcall(refreshPositionList)
     end)
@@ -903,7 +954,7 @@ local function startCarTool()
         Parent = Content,
     })
 
-    -- ═══ OPEN/CLOSE ANIMATION (ROBUST) ═══
+    -- ═══ OPEN/CLOSE ANIMATION (SIZE + FADE) ═══
     local isAnimating = false
 
     local function openGUI()
@@ -912,16 +963,29 @@ local function startCarTool()
         isAnimating = true
 
         MainFrame.Visible = true
+        MainFrame.Size = UDim2.new(0, 0, 0, 0)
         MainFrame.BackgroundTransparency = 1
         MainStroke.Transparency = 1
 
         pcall(function()
-            tween(MainFrame, {BackgroundTransparency = 0}, 0.25):Play()
-            tween(MainStroke, {Transparency = 0.4}, 0.25):Play()
-            tween(ToggleBtn, {Rotation = 90}, 0.25):Play()
+            local tw = tween(MainFrame, {Size = UDim2.new(0, guiW, 0, guiH)}, 0.35, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
+            tw:Play()
+            tween(MainFrame, {BackgroundTransparency = 0}, 0.3):Play()
+            tween(MainStroke, {Transparency = 0.4}, 0.3):Play()
+            tween(ToggleBtn, {Rotation = 90}, 0.35):Play()
         end)
 
-        task.wait(0.3)
+        -- Safety net: pastikan size balik normal kalau tween gagal
+        task.spawn(function()
+            task.wait(0.8)
+            if MainFrame.Visible and MainFrame.Size ~= UDim2.new(0, guiW, 0, guiH) then
+                MainFrame.Size = UDim2.new(0, guiW, 0, guiH)
+                MainFrame.BackgroundTransparency = 0
+                MainStroke.Transparency = 0.4
+            end
+        end)
+
+        task.wait(0.4)
         isAnimating = false
     end
 
@@ -931,13 +995,16 @@ local function startCarTool()
         isAnimating = true
 
         pcall(function()
+            local tw = tween(MainFrame, {Size = UDim2.new(0, 0, 0, 0)}, 0.25, Enum.EasingStyle.Quad, Enum.EasingDirection.In)
+            tw:Play()
             tween(MainFrame, {BackgroundTransparency = 1}, 0.2):Play()
             tween(MainStroke, {Transparency = 1}, 0.2):Play()
-            tween(ToggleBtn, {Rotation = 0}, 0.25):Play()
+            tween(ToggleBtn, {Rotation = 0}, 0.3):Play()
         end)
 
-        task.wait(0.25)
+        task.wait(0.3)
         MainFrame.Visible = false
+        MainFrame.Size = UDim2.new(0, guiW, 0, guiH)
         MainFrame.BackgroundTransparency = 0
         MainStroke.Transparency = 0.4
         isAnimating = false
@@ -951,11 +1018,9 @@ local function startCarTool()
         end
     end
 
-    -- ═══ BIND EVENTS ═══
+    -- Bind events
     bind(ToggleBtn.MouseButton1Click, toggleGUI)
-    bind(CloseBtn.MouseButton1Click, function()
-        closeGUI()
-    end)
+    bind(CloseBtn.MouseButton1Click, closeGUI)
 
     bind(SaveBtn.MouseButton1Click, function()
         local char = LocalPlayer.Character
@@ -963,7 +1028,10 @@ local function startCarTool()
         local hrp = char:FindFirstChild("HumanoidRootPart")
         if not hrp then return end
         slotCounter = slotCounter + 1
-        table.insert(savedPositions, {name = "Slot " .. slotCounter, pos = hrp.Position})
+        table.insert(savedPositions, {
+            name = "Slot " .. slotCounter,
+            pos = hrp.Position,
+        })
         markSaveDirty()
         refreshPositionList()
         SaveLbl.Text = "✅  Tersimpan (Slot " .. slotCounter .. ")"
@@ -1034,7 +1102,6 @@ local function startCarTool()
     end)
 
     print("[BSTS-ID] ✅ Car Tool siap!")
-    print("[BSTS-ID] Klik tombol ⚙️ di kiri layar buat buka GUI")
 end
 
 -- ═══════════════════════════════════════════════════════════════
