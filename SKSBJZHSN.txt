@@ -1,6 +1,6 @@
 -- ═══════════════════════════════════════════════════════════════
 -- BSTS-ID - LuxxyHub
--- v3.1 (Purple Edition)
+-- v3.2 (Auto-reset toggle position)
 -- PlaceId: 114375429517112
 -- ═══════════════════════════════════════════════════════════════
 
@@ -13,11 +13,9 @@ local CONFIG = {
     Timeout = 10,
 }
 
--- ═══ DEFAULT POSITIONS ═══
 local DEFAULT_SLOT19 = Vector3.new(-527, 95, 305)
 local DEFAULT_SLOT20 = Vector3.new(2482, 380, -607)
 
--- ═══ IMAGE ASSETS ═══
 local IMG_TOGGLE = "rbxassetid://125806010780793"
 local IMG_LOGO = "rbxassetid://72484610504506"
 
@@ -28,7 +26,6 @@ local RunService       = game:GetService("RunService")
 local HttpService      = game:GetService("HttpService")
 local LocalPlayer      = Players.LocalPlayer
 
--- ═══ SAFE GUI PARENT ═══
 local function getSafeGuiParent()
     if gethui then
         local ok, hui = pcall(gethui)
@@ -49,7 +46,6 @@ end
 local _pgCheck = LocalPlayer:FindFirstChild("PlayerGui")
 if not _pgCheck then LocalPlayer:WaitForChild("PlayerGui", 5) end
 
--- ═══ THEME UNGU ═══
 local COLOR = {
     White = Color3.fromRGB(255, 255, 255),
     Black = Color3.fromRGB(0, 0, 0),
@@ -132,7 +128,6 @@ local function createAnimatedBorder(parent, cornerRadius, thickness)
     return border, grad
 end
 
--- ═══ SERIALIZE ═══
 local function serializePositions(positions)
     local out = {}
     if type(positions) ~= "table" then return out end
@@ -154,7 +149,6 @@ local function deserializePositions(data)
     return out
 end
 
--- ═══ CONFIG ═══
 local defaultConfig = {
     flySpeed = 60, guiX = 0.5, guiY = 0.5,
     toggleOffsetX = nil, toggleOffsetY = nil,
@@ -192,7 +186,6 @@ end
 
 local userConfig = loadConfig()
 
--- ═══ GAME CHECK ═══
 local function isBSTSGame()
     for _, id in ipairs(CONFIG.AllowedPlaceIds) do
         if game.PlaceId == id then return true end
@@ -204,7 +197,6 @@ local function isBSTSGame()
     return false
 end
 
--- ═══ WRONG MAP ═══
 local function buildWrongMapUI()
     pcall(function()
         local parent = getSafeGuiParent()
@@ -288,6 +280,70 @@ local function startCarTool()
         end
     end)
 
+    -- ═══ TOGGLE POSITION VALIDATION ═══
+    local TOGGLE_SIZE = 60
+    local TOGGLE_MARGIN = 10
+
+    local function getViewport()
+        local cam = workspace.CurrentCamera
+        if cam then return cam.ViewportSize end
+        return Vector2.new(1280, 720)
+    end
+
+    -- Cek apakah posisi toggle masih valid (keliatan di layar)
+    local function isTogglePositionValid(x, y)
+        if not x or not y then return false end
+        if type(x) ~= "number" or type(y) ~= "number" then return false end
+        local vp = getViewport()
+        -- Minimal 20px toggle harus keliatan
+        local minVisible = 20
+        if x + TOGGLE_SIZE < minVisible then return false end
+        if y + TOGGLE_SIZE < minVisible then return false end
+        if x > vp.X - minVisible then return false end
+        if y > vp.Y - minVisible then return false end
+        return true
+    end
+
+    -- Clamp posisi biar selalu keliatan
+    local function clampTogglePosition(x, y)
+        local vp = getViewport()
+        local maxX = vp.X - TOGGLE_SIZE - TOGGLE_MARGIN
+        local maxY = vp.Y - TOGGLE_SIZE - TOGGLE_MARGIN
+        x = math.clamp(x, TOGGLE_MARGIN, math.max(TOGGLE_MARGIN, maxX))
+        y = math.clamp(y, TOGGLE_MARGIN, math.max(TOGGLE_MARGIN, maxY))
+        return x, y
+    end
+
+    -- Tentukan posisi awal toggle
+    local startX, startY = 15, 100  -- Default position
+    local savedX = userConfig.toggleOffsetX
+    local savedY = userConfig.toggleOffsetY
+
+    if isTogglePositionValid(savedX, savedY) then
+        -- Posisi tersimpan masih valid, pakai itu
+        startX, startY = savedX, savedY
+        print("[BSTS-ID] Toggle position loaded: " .. startX .. ", " .. startY)
+    else
+        -- Posisi invalid/keluar layar, reset ke default
+        if savedX or savedY then
+            print("[BSTS-ID] Toggle position OUT OF SCREEN, reset to default")
+        end
+        userConfig.toggleOffsetX = nil
+        userConfig.toggleOffsetY = nil
+        markSaveDirty()
+    end
+
+    local savedPositions = userConfig.savedPositions or {}
+    local slotCounter = userConfig.slotCounter or 0
+    local targetVehicleRoot = nil
+    local flyEnabled = false
+    local flySpeed = userConfig.flySpeed or 60
+    local flyBV, flyBG = nil, nil
+    local farmEnabled = false
+    local farmThread = nil
+
+    -- ... (fungsi findNearestCar, collectAllNames, dll tetap sama) ...
+
     local function findNearestCar()
         local char = LocalPlayer.Character
         if not char then return nil end
@@ -361,38 +417,27 @@ local function startCarTool()
 
     local function isDrivingFarmTruck()
         local vehicle, names = getDrivenVehicle()
-        if #names == 0 then
-            return false, nil, "Gak duduk di mobil"
-        end
+        if #names == 0 then return false, nil end
         local char = LocalPlayer.Character
         local hum = char and char:FindFirstChildOfClass("Humanoid")
         local seat = hum and hum.SeatPart
-        if seat then
-            table.insert(names, string.lower(seat.Name or ""))
-        end
+        if seat then table.insert(names, string.lower(seat.Name or "")) end
         local kwLower = string.lower(CONFIG.TruckKeyword)
         local kwParts = {}
         for part in string.gmatch(kwLower, "%S+") do
             table.insert(kwParts, part)
         end
         for _, name in ipairs(names) do
-            if string.find(name, kwLower, 1, true) then
-                return true, vehicle, "Match full: " .. name
-            end
+            if string.find(name, kwLower, 1, true) then return true, vehicle end
         end
         for _, name in ipairs(names) do
             local allMatch = true
             for _, part in ipairs(kwParts) do
-                if not string.find(name, part, 1, true) then
-                    allMatch = false
-                    break
-                end
+                if not string.find(name, part, 1, true) then allMatch = false; break end
             end
-            if allMatch and #kwParts > 0 then
-                return true, vehicle, "Match part: " .. name
-            end
+            if allMatch and #kwParts > 0 then return true, vehicle end
         end
-        return false, vehicle, "Gak match keyword"
+        return false, vehicle
     end
 
     local function teleportCarToPos(pos)
@@ -508,23 +553,15 @@ local function startCarTool()
     local function fireCollect()
         local prompt = findProximityPrompt()
         local button = findCollectButton()
-        if prompt then
-            firePrompt(prompt)
-            return "prompt"
-        elseif button then
-            fireButton(button)
-            return "button"
-        else
-            return nil
+        if prompt then firePrompt(prompt); return "prompt"
+        elseif button then fireButton(button); return "button"
         end
+        return nil
     end
 
     local function stopFarm()
         farmEnabled = false
-        if farmThread then
-            pcall(function() task.cancel(farmThread) end)
-            farmThread = nil
-        end
+        if farmThread then pcall(function() task.cancel(farmThread) end); farmThread = nil end
     end
 
     local function getSlot19Pos()
@@ -541,10 +578,9 @@ local function startCarTool()
     local function startFarm(statusLbl)
         if farmEnabled then return end
         farmEnabled = true
-
         farmThread = task.spawn(function()
             while farmEnabled do
-                local isDriving, vehicle, reason = isDrivingFarmTruck()
+                local isDriving = isDrivingFarmTruck()
                 if not isDriving then
                     if statusLbl then
                         statusLbl.Text = "⚠️ Nyetir " .. CONFIG.TruckKeyword
@@ -554,35 +590,24 @@ local function startCarTool()
                 else
                     local pos19 = getSlot19Pos()
                     local pos20 = getSlot20Pos()
-
                     if statusLbl then
                         statusLbl.Text = "🌾 [1/4] TP Slot 19..."
                         statusLbl.TextColor3 = COLOR.PurpleLight
                     end
-                    teleportCarToPos(pos19)
-                    task.wait(2)
-
+                    teleportCarToPos(pos19); task.wait(2)
                     if statusLbl then
                         statusLbl.Text = "🌾 [2/4] MUAT Slot 19..."
-                        statusLbl.TextColor3 = COLOR.PurpleLight
                     end
-                    fireCollect()
-                    task.wait(2.5)
+                    fireCollect(); task.wait(2.5)
                     if not farmEnabled then break end
-
                     if statusLbl then
                         statusLbl.Text = "🌾 [3/4] TP Slot 20..."
-                        statusLbl.TextColor3 = COLOR.Success
                     end
-                    teleportCarToPos(pos20)
-                    task.wait(2)
-
+                    teleportCarToPos(pos20); task.wait(2)
                     if statusLbl then
                         statusLbl.Text = "🌾 [4/4] MUAT Slot 20..."
-                        statusLbl.TextColor3 = COLOR.Success
                     end
-                    fireCollect()
-                    task.wait(2.5)
+                    fireCollect(); task.wait(2.5)
                 end
             end
         end)
@@ -650,12 +675,12 @@ local function startCarTool()
         Parent = getSafeGuiParent(),
     }))
 
-    -- TOGGLE BUTTON
+    -- Toggle Button (pakai startX, startY yang udah di-validate)
     local ToggleWrapper = track(new("Frame", {
         Name = "ToggleWrapper",
         AnchorPoint = Vector2.new(0, 0),
-        Size = UDim2.new(0, 60, 0, 60),
-        Position = userConfig.toggleOffsetX and UDim2.new(0, userConfig.toggleOffsetX, 0, userConfig.toggleOffsetY) or UDim2.new(0, 15, 0, 100),
+        Size = UDim2.new(0, TOGGLE_SIZE, 0, TOGGLE_SIZE),
+        Position = UDim2.new(0, startX, 0, startY),
         BackgroundTransparency = 1, ZIndex = 200, Parent = ScreenGui,
     }))
 
@@ -679,6 +704,7 @@ local function startCarTool()
     })
     createAnimatedBorder(ToggleWrapper, 30, 3)
 
+    -- DRAG SYSTEM (dengan clamp biar gak bisa keluar layar)
     local isDragging = false
     local dragStartPos = nil
     local dragStartInput = nil
@@ -702,7 +728,11 @@ local function startCarTool()
             local delta = currentInput - dragStartInput
             if delta.Magnitude > DRAG_THRESHOLD then hasMoved = true end
             if hasMoved then
-                ToggleWrapper.Position = UDim2.new(0, dragStartPos.X.Offset + delta.X, 0, dragStartPos.Y.Offset + delta.Y)
+                local nx = dragStartPos.X.Offset + delta.X
+                local ny = dragStartPos.Y.Offset + delta.Y
+                -- CLAMP biar gak keluar layar
+                local cx, cy = clampTogglePosition(nx, ny)
+                ToggleWrapper.Position = UDim2.new(0, cx, 0, cy)
             end
         end
     end)
@@ -710,9 +740,17 @@ local function startCarTool()
         if input.UserInputType == Enum.UserInputType.MouseButton1 or
            input.UserInputType == Enum.UserInputType.Touch then
             if isDragging and hasMoved then
-                userConfig.toggleOffsetX = ToggleWrapper.Position.X.Offset
-                userConfig.toggleOffsetY = ToggleWrapper.Position.Y.Offset
-                markSaveDirty()
+                -- Clamp + validate sebelum save
+                local cx, cy = clampTogglePosition(
+                    ToggleWrapper.Position.X.Offset,
+                    ToggleWrapper.Position.Y.Offset
+                )
+                ToggleWrapper.Position = UDim2.new(0, cx, 0, cy)
+                if isTogglePositionValid(cx, cy) then
+                    userConfig.toggleOffsetX = cx
+                    userConfig.toggleOffsetY = cy
+                    markSaveDirty()
+                end
             end
             isDragging = false
             dragStartPos = nil
@@ -720,7 +758,7 @@ local function startCarTool()
         end
     end)
 
-    -- MAIN FRAME
+    -- Main UI
     local MainWrapper = track(new("Frame", {
         Name = "MainWrapper", AnchorPoint = Vector2.new(0.5, 0.5),
         Size = UDim2.new(0, guiW, 0, guiH),
@@ -751,18 +789,12 @@ local function startCarTool()
     corner(Header, 18)
     new("Frame", {Size = UDim2.new(1,0,0.5,0), Position = UDim2.new(0,0,0.5,0), BackgroundColor3 = COLOR.Black,
         BackgroundTransparency = 0.6, BorderSizePixel = 0, Parent = Header})
-
-    -- LOGO di header
     new("ImageLabel", {
-        Size = UDim2.new(0, 32, 0, 32),
-        Position = UDim2.new(0, 12, 0.5, -16),
-        BackgroundTransparency = 1,
-        Image = IMG_LOGO,
-        ImageColor3 = Color3.fromRGB(255, 255, 255),
-        ScaleType = Enum.ScaleType.Fit,
+        Size = UDim2.new(0, 32, 0, 32), Position = UDim2.new(0, 12, 0.5, -16),
+        BackgroundTransparency = 1, Image = IMG_LOGO,
+        ImageColor3 = Color3.fromRGB(255, 255, 255), ScaleType = Enum.ScaleType.Fit,
         ZIndex = 5, Parent = Header,
     })
-
     new("TextLabel", {Size = UDim2.new(1,-90,1,-5), Position = UDim2.new(0,50,0,0), BackgroundTransparency = 1,
         Text = "BSTS-ID - LuxxyHub", TextColor3 = COLOR.Purple1, Font = Enum.Font.GothamBlack,
         TextSize = 15, TextXAlignment = Enum.TextXAlignment.Left, Parent = Header})
@@ -895,7 +927,6 @@ local function startCarTool()
     new("Frame", {Size = UDim2.new(1,0,0,1), BackgroundColor3 = COLOR.Purple1,
         BackgroundTransparency = 0.5, BorderSizePixel = 0, LayoutOrder = 5, ZIndex = 120, Parent = Content})
 
-    -- FARM SECTION
     new("TextLabel", {Size = UDim2.new(1,0,0,22), BackgroundTransparency = 1,
         Text = "🌾  AUTO FARM " .. CONFIG.TruckKeyword, TextColor3 = COLOR.PurpleLight,
         Font = Enum.Font.GothamBlack, TextSize = 11, TextXAlignment = Enum.TextXAlignment.Left,
@@ -923,7 +954,6 @@ local function startCarTool()
     new("Frame", {Size = UDim2.new(1,0,0,1), BackgroundColor3 = COLOR.Purple1,
         BackgroundTransparency = 0.5, BorderSizePixel = 0, LayoutOrder = 8, ZIndex = 120, Parent = Content})
 
-    -- FLY
     new("TextLabel", {Size = UDim2.new(1,0,0,22), BackgroundTransparency = 1,
         Text = "✈️  FLY MODE", TextColor3 = COLOR.PurpleLight,
         Font = Enum.Font.GothamBlack, TextSize = 11, TextXAlignment = Enum.TextXAlignment.Left,
@@ -1073,7 +1103,7 @@ local function startCarTool()
         end
     end)
 
-    print("[BSTS-ID] ✅ Car Tool siap!")
+    print("[BSTS-ID] Car Tool siap!")
 end
 
 task.spawn(function()
